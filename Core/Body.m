@@ -1,27 +1,62 @@
 classdef Body < handle
     properties
-        Pos                % 2x1 vector
-        Vel                % 2x1 vector
+        Pos
+        Vel = [0;0]
+        Angle = 0
+        Omega = 0
         Mass
-        Shape              % 'circle' or 'rect'
-        Radius             % if circle
-        Width              % if rect
-        Height             % if rect
+        Inertia
+        Shape
+        Radius
+        Width
+        Height
         Force = [0;0]
-        GraphicHandle      % handle to patch
+        Torque = 0
+        GraphicHandle
+        Fixed = false
     end
 
     methods
-        function obj = Body(pos, vel, mass, shape, size)
+        function obj = Body(pos, vel, mass, shape, size, fixed)
+            if nargin < 6, fixed = false; end
             obj.Pos = pos;
             obj.Vel = vel;
             obj.Mass = mass;
             obj.Shape = shape;
-            if strcmp(shape, 'circle')
+            obj.Fixed = fixed;
+
+            if strcmp(shape,'circle')
                 obj.Radius = size;
+                obj.Inertia = 0.5 * mass * size^2;
             else
                 obj.Width = size(1);
                 obj.Height = size(2);
+                obj.Inertia = mass * (size(1)^2 + size(2)^2) / 12;
+            end
+
+            if obj.Fixed
+                obj.Mass = 0;
+                obj.Inertia = 0;
+                obj.Vel = [0;0];
+                obj.Omega = 0;
+                obj.Force = [0;0];
+                obj.Torque = 0;
+            end
+        end
+
+        function verts = getVertices(obj)
+            if strcmp(obj.Shape, 'circle')
+                theta = linspace(0, 2*pi, 20);
+                verts = obj.Pos + obj.Radius * [cos(theta); sin(theta)];
+            else
+                w = obj.Width / 2;
+                h = obj.Height / 2;
+                % Proper vertex ordering (no duplicate last vertex)
+                corners = [-w,  w,  w, -w;
+                           -h, -h,  h,  h];
+                R = [cos(obj.Angle), -sin(obj.Angle);
+                     sin(obj.Angle),  cos(obj.Angle)];
+                verts = R * corners + obj.Pos;
             end
         end
 
@@ -30,32 +65,20 @@ classdef Body < handle
                 obj.initGraphic(ax);
                 return;
             end
-
-            if strcmp(obj.Shape, 'circle')
-                theta = linspace(0, 2*pi, 20);
-                obj.GraphicHandle.XData = obj.Pos(1) + obj.Radius * cos(theta);
-                obj.GraphicHandle.YData = obj.Pos(2) + obj.Radius * sin(theta);
-            else
-                w = obj.Width/2; h = obj.Height/2;
-                x = obj.Pos(1) + [-w w w -w];
-                y = obj.Pos(2) + [-h -h h h];
-                obj.GraphicHandle.XData = x;
-                obj.GraphicHandle.YData = y;
-            end
+            verts = obj.getVertices();
+            obj.GraphicHandle.XData = verts(1,:);
+            obj.GraphicHandle.YData = verts(2,:);
         end
 
         function initGraphic(obj, ax)
-            if strcmp(obj.Shape, 'circle')
-                theta = linspace(0, 2*pi, 20);
-                x = obj.Pos(1) + obj.Radius * cos(theta);
-                y = obj.Pos(2) + obj.Radius * sin(theta);
-                obj.GraphicHandle = fill(ax, x, y, 'r', 'EdgeColor', 'none');
-            else
-                w = obj.Width/2; h = obj.Height/2;
-                x = obj.Pos(1) + [-w w w -w];
-                y = obj.Pos(2) + [-h -h h h];
-                obj.GraphicHandle = fill(ax, x, y, 'b', 'EdgeColor', 'none');
-            end
+            verts = obj.getVertices();
+            color = 'r';
+            if strcmp(obj.Shape,'rect'), color = 'b'; end
+            obj.GraphicHandle = fill(ax, verts(1,:), verts(2,:), color, 'EdgeColor','none');
+        end
+
+        function tf = isFixed(obj)
+            tf = obj.Fixed;
         end
     end
 end

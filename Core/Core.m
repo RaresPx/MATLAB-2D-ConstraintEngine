@@ -4,8 +4,8 @@ classdef Core < handle
         AxesHandle
         Scene
         Running = true
-        dt = 0.016               % fixed timestep (~60Hz)
-        Gravity = [0; -0.2]
+        dt = 1/60               % fixed timestep (~120Hz)
+        Gravity = [0; -9.8]
         LastDrawTime
         DrawInterval = 1/30      % draw at ~30fps
     end
@@ -21,20 +21,22 @@ classdef Core < handle
             obj.AxesHandle.YLimMode = 'manual';
 
             obj.Scene = Scene();
-            Editor(obj.Scene, obj.AxesHandle);
+            Editor(obj,obj.Scene, obj.AxesHandle);
 
             drawnow;
             obj.LastDrawTime = tic;
+        end
+
+        function initDefaultScene(obj)
+            obj.Scene.setupDefaultScene();
         end
 
         function run(obj)
             while obj.Running && isvalid(obj.FigureHandle)
                 t0 = tic;
 
-                % --- Physics update ---
-                obj.Scene.applyForces(obj.Gravity);
-                obj.Scene.integrateBodies(obj.dt);
-                obj.Scene.solveConstraints(5);
+                % --- Scene Step ---
+                obj.Scene.step(obj.dt,obj.Gravity);
 
                 % --- Rendering check ---
                 if toc(obj.LastDrawTime) >= obj.DrawInterval

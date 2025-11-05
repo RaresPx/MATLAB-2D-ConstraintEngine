@@ -3,14 +3,19 @@ classdef Constraint < handle
         BodyA
         BodyB
         RestLength
+        Stiffness = 1.0   % 0..1, 1 = rigid, <1 = elastic
         GraphicHandle
     end
 
     methods
-        function obj = Constraint(a, b, len)
+        function obj = Constraint(a, b, len, stiffness)
+            if nargin < 4
+                stiffness = 1.0;
+            end
             obj.BodyA = a;
             obj.BodyB = b;
             obj.RestLength = len;
+            obj.Stiffness = stiffness;
         end
 
         function solve(obj)
@@ -19,9 +24,21 @@ classdef Constraint < handle
             if d == 0
                 return;
             end
-            correction = 0.5 * (d - obj.RestLength) / d * delta;
-            obj.BodyA.Pos = obj.BodyA.Pos + correction;
-            obj.BodyB.Pos = obj.BodyB.Pos - correction;
+            correction = (d - obj.RestLength) / d * delta * obj.Stiffness;
+
+            invA = ~obj.BodyA.Fixed;
+            invB = ~obj.BodyB.Fixed;
+            totalInv = invA + invB;
+            if totalInv == 0
+                return;
+            end
+
+            if invA
+                obj.BodyA.Pos = obj.BodyA.Pos + correction * (invA / totalInv);
+            end
+            if invB
+                obj.BodyB.Pos = obj.BodyB.Pos - correction * (invB / totalInv);
+            end
         end
 
         function updateGraphic(obj, ax)
