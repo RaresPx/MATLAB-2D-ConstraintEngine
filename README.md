@@ -1,0 +1,3 @@
+Matlab constraint solver. Work in progress...
+
+TO DO: add gpu acceleration
