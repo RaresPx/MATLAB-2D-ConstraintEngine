@@ -24,7 +24,7 @@ refIndex = mod(refIndex-1, N) + 1;
 % Reference edge
 A = refPoly(:, refIndex);
 B = refPoly(:, mod(refIndex, N) + 1);
-edge = B - A;
+
 
 % Clip incident edge
 incEdges = [incPoly(:,2:end) - incPoly(:,1:end-1), incPoly(:,1) - incPoly(:,end)];
