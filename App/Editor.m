@@ -7,7 +7,9 @@ classdef Editor < handle
         SelectedConstraint = []
         Mode = 'select'
         UI = struct()
+        Menu = struct()
         PanelWidth = 200
+        GroundObj
     end
 
     methods
@@ -16,15 +18,97 @@ classdef Editor < handle
             obj.Scene = scene;
             obj.AxesHandle = ax;
 
+            obj.createMenu();
+            %obj.createUI();
+
+        end
+
+        %% ----------------Menu----------------
+        function createMenu(obj)
+
+            % Hide axes
+            obj.AxesHandle.Visible = 'off';
+
+            % Parent figure
+            fig = obj.AxesHandle.Parent;
+            fig.Units = 'normalized';
+
+            % Size of menu panel (normalized)
+            menuW = 0.4;
+            menuH = 0.4;
+
+            % Center the panel in the figure
+            menuX = (1 - menuW) / 2;
+            menuY = (1 - menuH) / 2;
+
+            % Create the menu panel
+            obj.Menu.MenuPanel = uipanel(...
+                'Parent', fig, ...
+                'Title', '', ...        % no titlebar
+                'Units', 'normalized', ...
+                'Position', [menuX menuY menuW menuH], ...
+                'BorderType', 'none');
+
+            % Button geometry
+            buttonW = 0.6;      % 60% panel width
+            buttonH = 0.18;     % 18% panel height
+            buttonX = (1 - buttonW) / 2;  % center horizontally
+
+            % Vertical positions (nicely spaced)
+            y1 = 0.65;
+            y2 = 0.40;
+            y3 = 0.15;
+
+            % Create "Create New Scene"
+            obj.Menu.CreateNewScene = uicontrol(obj.Menu.MenuPanel, ...
+                'Style', 'pushbutton', ...
+                'String', 'Create New Scene', ...
+                'Units', 'normalized', ...
+                'Position', [buttonX y1 buttonW buttonH], ...
+                'Callback', @(~,~) obj.CreateNewScene());
+
+            % Create "Documentation"
+            obj.Menu.Documentation = uicontrol(obj.Menu.MenuPanel, ...
+                'Style', 'pushbutton', ...
+                'String', 'Documentation', ...
+                'Units', 'normalized', ...
+                'Position', [buttonX y2 buttonW buttonH], ...
+                'Callback', @(~,~) obj.SeeDocumentation());
+
+            % Create "Exit"
+            uicontrol(obj.Menu.MenuPanel, ...
+                'Style', 'pushbutton', ...
+                'String', 'Exit', ...
+                'Units', 'normalized', ...
+                'Position', [buttonX y3 buttonW buttonH], ...
+                'Callback', @(~,~) close(fig));
+
+        end
+
+        %% ---------------Menu Functions-----------------
+        function CreateNewScene(obj)
+            fields = fieldnames(obj.Menu);
+            for i = 1:numel(fields)
+                if isvalid(obj.Menu.(fields{i}))
+                    obj.Menu.(fields{i}).Visible = 'off';
+                end
+            end
+
+            obj.AxesHandle.Visible = 'on';
             obj.createUI();
 
             % Set up mouse events for interactions
-            fig = ax.Parent;
+            fig = obj.AxesHandle.Parent;
             fig.WindowButtonDownFcn   = @(~,~) obj.onMouseDown();
             fig.WindowButtonUpFcn     = @(~,~) obj.onMouseUp();
             fig.WindowButtonMotionFcn = @(~,~) obj.onMouseMove();
+
+            obj.Core.run();
         end
 
+        function SeeDocumentation(obj)
+            doc Core;
+        end
         %% ---------------- UI ----------------
         function createUI(obj)
             % Place the panel to the right of the axes
@@ -73,6 +157,14 @@ classdef Editor < handle
                 'String', num2str(obj.Core.DrawInterval), 'Position', [xpad+90 yConst 50 20], ...
                 'Callback', @(s,e)obj.setDrawTime());
             yConst = yConst - 40;
+
+            %Create Ground
+            uicontrol(obj.UI.MainPanel, 'Style', 'text', 'String', 'Ground at 0', ...
+                'Position', [xpad yConst 80 20]);
+            obj.UI.GroundEnable = uicontrol(obj.UI.MainPanel, 'Style', 'checkbox', ...
+                'Position', [xpad+90 yConst 50 20], ...
+                'Callback', @(s,e)obj.setGround());
+            yConst = yConst - 30;
 
             % Exit Button
             uicontrol(obj.UI.MainPanel, 'Style', 'pushbutton', 'String', 'Exit', ...
@@ -163,16 +255,16 @@ classdef Editor < handle
             % Delete the constraint at the given position
             constraintToDelete = obj.pickConstraint(pos);
             if ~isempty(constraintToDelete)
-                 %Delete the constraint graphics
+                %Delete the constraint graphics
                 if ishandle(constraintToDelete.GraphicHandle)
                     constraintToDelete.GraphicHandle.XData = [];
                     constraintToDelete.GraphicHandle.YData = [];
                 end
-                
+
                 % Remove the constraint from the scene
                 obj.Scene.Constraints = obj.Scene.Constraints(~cellfun(@(x) x == constraintToDelete, obj.Scene.Constraints));
 
-               
+
                 % If the selected constraint was the one deleted, clear the selection
                 if obj.SelectedConstraint == constraintToDelete
                     obj.SelectedConstraint = [];
@@ -243,11 +335,11 @@ classdef Editor < handle
                     'Position', [xpad+70 y 50 20], 'Callback', @(s,e)obj.setConstraintProperty('RestLength'));
                 y = y - dy;
 
-                uicontrol(obj.UI.PropPanel, 'Style', 'text', 'String', 'Elasticity', ...
+                uicontrol(obj.UI.PropPanel, 'Style', 'text', 'String', 'Stiffness', ...
                     'Position', [xpad y 60 20]);
                 obj.UI.ElasticityEdit = uicontrol(obj.UI.PropPanel, 'Style', 'edit', ...
-                    'String', num2str(obj.SelectedConstraint.Elasticity), ...
-                    'Position', [xpad+70 y 50 20], 'Callback', @(s,e)obj.setConstraintProperty('Elasticity'));
+                    'String', num2str(obj.SelectedConstraint.Stiffness), ...
+                    'Position', [xpad+70 y 50 20], 'Callback', @(s,e)obj.setConstraintProperty('Stiffness'));
             end
         end
 
@@ -266,8 +358,8 @@ classdef Editor < handle
             switch prop
                 case 'RestLength'
                     obj.SelectedConstraint.RestLength = str2double(obj.UI.RestLengthEdit.String);
-                case 'Elasticity'
-                    obj.SelectedConstraint.Elasticity = str2double(obj.UI.ElasticityEdit.String);
+                case 'Stiffness'
+                    obj.SelectedConstraint.Stiffness = str2double(obj.UI.ElasticityEdit.String);
             end
         end
 
@@ -288,6 +380,19 @@ classdef Editor < handle
             obj.Core.Running = false;
             if isvalid(obj.Core.FigureHandle)
                 close(obj.Core.FigureHandle);
+            end
+        end
+
+        function setGround(obj)
+
+            % Create ground if checkbox is checked
+            if obj.UI.GroundEnable.Value
+                    obj.GroundObj = Body([0 -10]', [0 0], 0, 'rect', [100 0.5], true);
+                    obj.Core.Scene.addBody(obj.GroundObj);
+            else
+                obj.GroundObj.Active = false;
+                obj.GroundObj.GraphicHandle.XData =[];
+                obj.GroundObj.GraphicHandle.YData =[];
             end
         end
     end

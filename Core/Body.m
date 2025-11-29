@@ -14,6 +14,7 @@ classdef Body < handle
         Torque = 0
         GraphicHandle
         Fixed = false
+        Active = true;
     end
 
     methods

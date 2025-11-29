@@ -1,4 +1,3 @@
 clear; clc;
-core = Core();
-core.initDefaultScene();
-core.run();
+App = ConstraintEngine();
+App.run();

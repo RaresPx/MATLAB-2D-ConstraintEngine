@@ -12,16 +12,16 @@ classdef Core < handle
 
     methods
         function obj = Core()
-            obj.FigureHandle = figure('Name','2D Physics Engine','NumberTitle','off', ...
+            obj.FigureHandle = figure('Name','2D Constraint Physics Engine','NumberTitle','off', ...
                 'WindowKeyPressFcn', @(src,evt)obj.keyHandler(evt));
-            obj.AxesHandle = axes('Parent',obj.FigureHandle);
+            obj.AxesHandle = axes('Parent',obj.FigureHandle,'Visible','off');
             axis(obj.AxesHandle, [-10 10 -10 10]);
             hold(obj.AxesHandle,'on');
             obj.AxesHandle.XLimMode = 'manual';
             obj.AxesHandle.YLimMode = 'manual';
 
             obj.Scene = Scene();
-            Editor(obj,obj.Scene, obj.AxesHandle);
+            %Editor(obj,obj.Scene, obj.AxesHandle);
 
             drawnow;
             obj.LastDrawTime = tic;

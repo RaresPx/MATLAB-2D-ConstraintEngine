@@ -18,6 +18,11 @@ classdef Scene < handle
 
         %% ---------------- Simulation Steps ----------------
         function step(obj, dt, gravity)
+            inactiveIdx = cellfun(@(b) ~b.Active, obj.Bodies);
+
+            % Remove inactive bodies from the array
+            obj.Bodies(inactiveIdx) = [];
+
             obj.applyForces(gravity);
             obj.integrateBodies(dt);
             obj.solveConstraints(10);
