@@ -14,7 +14,7 @@ classdef Core < handle
         function obj = Core()
             obj.FigureHandle = figure('Name','2D Constraint Physics Engine','NumberTitle','off', ...
                 'WindowKeyPressFcn', @(src,evt)obj.keyHandler(evt));
-            obj.AxesHandle = axes('Parent',obj.FigureHandle,'Visible','off');
+            obj.AxesHandle = axes('Parent',obj.FigureHandle);
             axis(obj.AxesHandle, [-10 10 -10 10]);
             hold(obj.AxesHandle,'on');
             obj.AxesHandle.XLimMode = 'manual';

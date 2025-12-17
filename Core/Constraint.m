@@ -26,8 +26,8 @@ classdef Constraint < handle
             end
             correction = (d - obj.RestLength) / d * delta * obj.Stiffness;
 
-            invA = ~obj.BodyA.Fixed;
-            invB = ~obj.BodyB.Fixed;
+            invA = ~obj.BodyA.Fixed && ~obj.BodyA.Dragged;
+            invB = ~obj.BodyB.Fixed && ~obj.BodyB.Dragged;
             totalInv = invA + invB;
             if totalInv == 0
                 return;

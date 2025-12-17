@@ -15,6 +15,7 @@ classdef Body < handle
         GraphicHandle
         Fixed = false
         Active = true;
+        Dragged = false;
     end
 
     methods
@@ -47,7 +48,7 @@ classdef Body < handle
 
         function verts = getVertices(obj)
             if strcmp(obj.Shape, 'circle')
-                theta = linspace(0, 2*pi, 20);
+                theta = linspace(0, 2*pi - 2*pi/20, 20);   % 20 unique points
                 verts = obj.Pos + obj.Radius * [cos(theta); sin(theta)];
             else
                 w = obj.Width / 2;

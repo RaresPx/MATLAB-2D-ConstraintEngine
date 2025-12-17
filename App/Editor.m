@@ -106,9 +106,68 @@ classdef Editor < handle
             obj.Core.run();
         end
 
-        function SeeDocumentation(obj)
-            doc Core;
+        function SeeDocumentation(~)
+            % Get project root (parent of /app)
+            projectRoot = fileparts(fileparts(mfilename('fullpath')));
+
+            outDir = fullfile(projectRoot, 'docs');
+            if ~exist(outDir, 'dir')
+                mkdir(outDir);
+            end
+
+            % List of subfolders to include
+            subFolders = {'App', 'Utils', 'Core'};
+
+            files = [];
+
+            for i = 1:length(subFolders)
+                folderPath = fullfile(projectRoot, subFolders{i});
+                if exist(folderPath, 'dir')
+                    folderFiles = dir(fullfile(folderPath, '*.m'));
+                    files = [files; folderFiles];  % append
+                end
+            end
+
+
+            for k = 1:numel(files)
+                filePath = fullfile(files(k).folder, files(k).name);
+                [~, name] = fileparts(filePath);
+
+                % ==========================
+                % 1) Generate HTML
+                % ==========================
+                htmlOpts = struct( ...
+                    'format', 'html', ...
+                    'outputDir', outDir, ...
+                    'showCode', true, ...
+                    'evalCode', false ...
+                    );
+                try
+                    publish(filePath, htmlOpts);
+                catch ME
+                    warning("HTML generation failed for %s: %s", name, ME.message);
+                end
+
+                % ==========================
+                % 2) Generate PDF
+                % ==========================
+                pdfOpts = struct( ...
+                    'format', 'pdf', ...
+                    'outputDir', outDir, ...
+                    'showCode', true, ...
+                    'evalCode', false ...
+                    );
+                try
+                    publish(filePath, pdfOpts);
+                catch ME
+                    warning("PDF generation failed for %s: %s", name, ME.message);
+                end
+            end
+
+            fprintf("Documentation generated in: %s\n", outDir);
         end
+
+
         %% ---------------- UI ----------------
         function createUI(obj)
             % Place the panel to the right of the axes
@@ -159,7 +218,7 @@ classdef Editor < handle
             yConst = yConst - 40;
 
             %Create Ground
-            uicontrol(obj.UI.MainPanel, 'Style', 'text', 'String', 'Ground at 0', ...
+            uicontrol(obj.UI.MainPanel, 'Style', 'text', 'String', 'Toggle Ground', ...
                 'Position', [xpad yConst 80 20]);
             obj.UI.GroundEnable = uicontrol(obj.UI.MainPanel, 'Style', 'checkbox', ...
                 'Position', [xpad+90 yConst 50 20], ...
@@ -173,7 +232,7 @@ classdef Editor < handle
             % Properties Panel
             obj.UI.PropPanelTitle = uicontrol(obj.UI.MainPanel, 'Style', 'text', ...
                 'String', 'Selected Properties', 'Position', [xpad yConst 160 20], 'FontWeight', 'bold');
-            yConst = yConst - 25;
+            yConst = yConst - 15;
             obj.UI.PropPanel = uipanel(obj.UI.MainPanel, 'Position', [0 0 1 yConst/panelH]);
         end
 
@@ -192,7 +251,7 @@ classdef Editor < handle
                 case 'addCircle'
                     obj.Scene.addBody(Body(pos, [0;0], 1, 'circle', 0.5));
                 case 'addRect'
-                    obj.Scene.addBody(Body(pos, [0;0], 1, 'rect', [1 1]));
+                    obj.Scene.addBody(Body(pos, [0;0], 1, 'rect', [3 1]));
                 case 'drag'
                     obj.SelectedBody = obj.pickBody(pos);
                 case 'select'
@@ -216,6 +275,7 @@ classdef Editor < handle
                 end
                 obj.SelectedBody = [];
             elseif strcmp(obj.Mode, 'drag')
+                obj.SelectedBody.Dragged = false;
                 obj.SelectedBody = [];
             end
             obj.updatePropertyPanel();
@@ -225,6 +285,7 @@ classdef Editor < handle
             if strcmp(obj.Mode, 'drag') && ~isempty(obj.SelectedBody)
                 pos = obj.AxesHandle.CurrentPoint(1,1:2)';
                 obj.SelectedBody.Pos = pos;
+                obj.SelectedBody.Dragged = true;
             end
         end
 
@@ -324,6 +385,7 @@ classdef Editor < handle
                 obj.UI.FixedCheckbox = uicontrol(obj.UI.PropPanel, 'Style', 'checkbox', ...
                     'String', 'Fixed', 'Value', obj.SelectedBody.Fixed, ...
                     'Position', [xpad y 100 20], 'Callback', @(s,e)obj.setBodyProperty('Fixed'));
+                
             elseif ~isempty(obj.SelectedConstraint)
                 uicontrol(obj.UI.PropPanel, 'Style', 'text', 'String', 'Constraint Properties', ...
                     'Position', [xpad y 160 20], 'FontWeight', 'bold');
@@ -387,8 +449,8 @@ classdef Editor < handle
 
             % Create ground if checkbox is checked
             if obj.UI.GroundEnable.Value
-                    obj.GroundObj = Body([0 -10]', [0 0], 0, 'rect', [100 0.5], true);
-                    obj.Core.Scene.addBody(obj.GroundObj);
+                obj.GroundObj = Body([0 -10]', [0 0], 0, 'rect', [100 0.5], true);
+                obj.Core.Scene.addBody(obj.GroundObj);
             else
                 obj.GroundObj.Active = false;
                 obj.GroundObj.GraphicHandle.XData =[];

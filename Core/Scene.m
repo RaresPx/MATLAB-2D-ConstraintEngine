@@ -32,7 +32,7 @@ classdef Scene < handle
         function applyForces(obj, gravity)
             for i = 1:numel(obj.Bodies)
                 b = obj.Bodies{i};
-                if ~b.Fixed
+                if ~b.Fixed && ~b.Dragged
                     b.Force = gravity * b.Mass;
                 else
                     b.Force = [0;0];
@@ -48,13 +48,16 @@ classdef Scene < handle
                     b.Torque = 0;
                     continue
                 end
-                % Linear integration
-                acc = b.Force / b.Mass;
-                b.Vel = b.Vel + acc*dt;
-                b.Pos = b.Pos + b.Vel*dt;
-                % Angular integration
+                % Linear
+                v_old = b.Vel;
+                b.Vel = b.Vel + b.Force / b.Mass * dt;
+                b.Pos = b.Pos + 0.5 * (v_old + b.Vel) * dt;
+
+                % Angular
+                omega_old = b.Omega;
                 b.Omega = b.Omega + b.Torque / b.Inertia * dt;
-                b.Angle = b.Angle + b.Omega*dt;
+                b.Angle = b.Angle + 0.5 * (omega_old + b.Omega) * dt;
+
                 % Reset forces/torque
                 b.Force = [0;0];
                 b.Torque = 0;
@@ -70,102 +73,153 @@ classdef Scene < handle
         end
 
         %% ---------------- Collision ----------------
-        function resolveCollisions(obj)
-            n = numel(obj.Bodies);
-            maxIterations = 10;
-            for iter = 1:maxIterations
-                for i = 1:n-1
-                    for j = i+1:n
-                        bodyA = obj.Bodies{i};
-                        bodyB = obj.Bodies{j};
-                        [colliding, normal, depth, refPoly, incPoly, refIndex, isCircle] = ...
-                            SATCollision(bodyA, bodyB);
-                        if colliding
-                            contacts = ComputeManifold(refPoly, incPoly, normal, refIndex, depth, isCircle);
-                            if isempty(contacts)
-                                contacts = (mean(refPoly,2) + mean(incPoly,2))/2;
-                            end
-                            for k = 1:size(contacts,2)
-                                obj.applyImpulse(bodyA, bodyB, normal, depth, contacts(:,k));
-                            end
-                        end
+function resolveCollisions(obj)
+    n = numel(obj.Bodies);
+    maxIterations = 20;  % Positional correction iterations
+    impulseIterations = 10; % Sequential impulse iterations
+
+    for iter = 1:maxIterations
+        for i = 1:n-1
+            for j = i+1:n
+                bodyA = obj.Bodies{i};
+                bodyB = obj.Bodies{j};
+
+                [isColliding, normal, ~, MTV] = SATCollision(bodyA, bodyB);
+
+                if ~isColliding
+                    continue;
+                end
+
+                %% --- 1. Positional correction / depenetration ---
+                slop = 0.001;      % small allowed penetration
+                percent = 0.8;     % fraction of penetration to correct
+
+                MTV_mag = norm(MTV);
+                if MTV_mag > slop
+                    correction = (MTV_mag - slop) * (MTV / MTV_mag) * percent;
+                    if bodyA.Fixed && ~bodyB.Fixed
+                        bodyB.Pos = bodyB.Pos + correction;
+                    elseif bodyB.Fixed && ~bodyA.Fixed
+                        bodyA.Pos = bodyA.Pos - correction;
+                    elseif ~bodyA.Fixed && ~bodyB.Fixed
+                        totalMass = bodyA.Mass + bodyB.Mass;
+                        bodyA.Pos = bodyA.Pos - (bodyB.Mass / totalMass) * correction;
+                        bodyB.Pos = bodyB.Pos + (bodyA.Mass / totalMass) * correction;
                     end
                 end
-            end
-        end
 
-        function applyImpulse(~, bodyA, bodyB, normal, depth, contact)
-            restitution = 0.3;
-
-            ra = contact - bodyA.Pos;
-            rb = contact - bodyB.Pos;
-
-            % velocities at contact points
-            velA = bodyA.Vel;
-            velB = bodyB.Vel;
-            if ~bodyA.Fixed
-                velA = velA + [-bodyA.Omega*ra(2); bodyA.Omega*ra(1)];
-            end
-            if ~bodyB.Fixed
-                velB = velB + [-bodyB.Omega*rb(2); bodyB.Omega*rb(1)];
-            end
-
-            relVel = velB - velA;
-            velAlongNormal = dot(relVel, normal);
-            if velAlongNormal > 0
-                return
-            end
-
-            % --- Inverse mass & inertia, safely ---
-            invMassA = 0; invInertiaA = 0;
-            if ~bodyA.Fixed && bodyA.Mass > 0
-                invMassA = 1 / bodyA.Mass;
-                invInertiaA = 1 / bodyA.Inertia;
-            end
-
-            invMassB = 0; invInertiaB = 0;
-            if ~bodyB.Fixed && bodyB.Mass > 0
-                invMassB = 1 / bodyB.Mass;
-                invInertiaB = 1 / bodyB.Inertia;
-            end
-
-            raCrossN = ra(1)*normal(2) - ra(2)*normal(1);
-            rbCrossN = rb(1)*normal(2) - rb(2)*normal(1);
-
-            invMassSum = invMassA + invMassB + raCrossN^2*invInertiaA + rbCrossN^2*invInertiaB;
-            if invMassSum == 0
-                return  % both bodies fixed, skip impulse
-            end
-
-            % --- impulse ---
-            j = -(1 + restitution) * velAlongNormal / invMassSum;
-            impulse = j * normal;
-
-            if ~bodyA.Fixed
-                bodyA.Vel = bodyA.Vel - impulse*invMassA;
-                bodyA.Omega = bodyA.Omega - raCrossN*j*invInertiaA;
-            end
-            if ~bodyB.Fixed
-                bodyB.Vel = bodyB.Vel + impulse*invMassB;
-                bodyB.Omega = bodyB.Omega + rbCrossN*j*invInertiaB;
-            end
-
-            % --- positional correction ---
-            percent = 0.8;
-            slop = 0.01;
-            correction = max(depth - slop,0) * percent * normal;
-            totalInvMass = invMassA + invMassB;
-            if totalInvMass > 0
-                if ~bodyA.Fixed
-                    bodyA.Pos = bodyA.Pos - correction * invMassA / totalInvMass;
+                %% --- 2. Contact point calculation ---
+                contacts = ComputeContactPoints(bodyA, bodyB, normal);
+                if isempty(contacts)
+                    continue
                 end
-                if ~bodyB.Fixed
-                    bodyB.Pos = bodyB.Pos + correction * invMassB / totalInvMass;
+
+                %% --- 3. Impulse resolution ---
+                for k = 1:impulseIterations
+                    obj.applyImpulse(bodyA, bodyB, contacts, normal);
                 end
             end
         end
+    end
+end
 
-        %% ---------------- Graphics ----------------
+function applyImpulse(~,A, B, contacts, normal)
+    if A.Fixed && B.Fixed
+        return
+    end
+
+    restitution = 0.8;
+    mu = 0.6;
+
+    % Loop over all contact points
+    for k = 1:size(contacts,1)
+        pA = contacts(k, 1:2)';   % point on A
+        pB = contacts(k, 3:4)';   % point on B
+
+        rA = pA - A.Pos;
+        rB = pB - B.Pos;
+
+        % Velocities at contact
+        vA = A.Vel + [-A.Omega * rA(2);  A.Omega * rA(1)];
+        vB = B.Vel + [-B.Omega * rB(2);  B.Omega * rB(1)];
+
+        relV = vB - vA;
+        vn = dot(relV, normal);
+
+        % Skip separating contacts
+        if vn >= 0
+            continue
+        end
+
+        % Inverse masses
+        invMassA = 0; invIA = 0;
+        invMassB = 0; invIB = 0;
+
+        if ~A.Fixed
+            invMassA = 1 / A.Mass;
+            invIA = 1 / A.Inertia;
+        end
+        if ~B.Fixed
+            invMassB = 1 / B.Mass;
+            invIB = 1 / B.Inertia;
+        end
+
+        %% -------- Normal impulse --------
+        raCrossN = cross2(rA, normal);
+        rbCrossN = cross2(rB, normal);
+
+        denom = invMassA + invMassB + raCrossN^2 * invIA + rbCrossN^2 * invIB;
+
+        j = -(1 + restitution) * vn / denom;
+        impulse = j * normal;
+
+        if ~A.Fixed
+            A.Vel   = A.Vel   - impulse * invMassA;
+            A.Omega = A.Omega - raCrossN * j * invIA;
+        end
+        if ~B.Fixed
+            B.Vel   = B.Vel   + impulse * invMassB;
+            B.Omega = B.Omega + rbCrossN * j * invIB;
+        end
+
+        %% -------- Friction impulse --------
+        vt = relV - vn * normal;
+        tMag = norm(vt);
+
+        if tMag > 1e-8
+            tangent = vt / tMag;
+
+            raCrossT = cross2(rA, tangent);
+            rbCrossT = cross2(rB, tangent);
+
+            denomT = invMassA + invMassB + raCrossT^2 * invIA + rbCrossT^2 * invIB;
+
+            jt = -dot(relV, tangent) / denomT;
+
+            % Coulomb friction
+            jtMax = mu * j;
+            jt = max(-jtMax, min(jtMax, jt));
+
+            frictionImpulse = jt * tangent;
+
+            if ~A.Fixed
+                A.Vel   = A.Vel   - frictionImpulse * invMassA;
+                A.Omega = A.Omega - raCrossT * jt * invIA;
+            end
+            if ~B.Fixed
+                B.Vel   = B.Vel   + frictionImpulse * invMassB;
+                B.Omega = B.Omega + rbCrossT * jt * invIB;
+            end
+        end
+    end
+
+    % --- helper function ---
+    function c = cross2(a, b)
+        c = a(1)*b(2) - a(2)*b(1);
+    end
+end
+
+
         function updateGraphics(obj, ax)
             for i = 1:numel(obj.Bodies)
                 obj.Bodies{i}.updateGraphic(ax);
