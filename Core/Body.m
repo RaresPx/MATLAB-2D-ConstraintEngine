@@ -16,15 +16,17 @@ classdef Body < handle
         Fixed = false
         Active = true;
         Dragged = false;
+        Color = [0 0 0];
     end
 
     methods
-        function obj = Body(pos, vel, mass, shape, size, fixed)
-            if nargin < 6, fixed = false; end
+        function obj = Body(pos, vel, mass, shape, size,color, fixed)
+            if nargin < 7,fixed = false; end
             obj.Pos = pos;
             obj.Vel = vel;
             obj.Mass = mass;
             obj.Shape = shape;
+            obj.Color = color;
             obj.Fixed = fixed;
 
             if strcmp(shape,'circle')
@@ -70,13 +72,12 @@ classdef Body < handle
             verts = obj.getVertices();
             obj.GraphicHandle.XData = verts(1,:);
             obj.GraphicHandle.YData = verts(2,:);
+            obj.GraphicHandle.FaceColor = obj.Color;
         end
 
         function initGraphic(obj, ax)
             verts = obj.getVertices();
-            color = 'r';
-            if strcmp(obj.Shape,'rect'), color = 'b'; end
-            obj.GraphicHandle = fill(ax, verts(1,:), verts(2,:), color, 'EdgeColor','none');
+            obj.GraphicHandle = fill(ax, verts(1,:), verts(2,:), obj.Color, 'EdgeColor','black');
         end
 
         function tf = isFixed(obj)
