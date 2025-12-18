@@ -2,10 +2,6 @@ classdef Scene < handle
     properties
         Bodies = {}        % Cell array of Body
         Constraints = {}   % Cell array of Constraint
-        Width = 10         % Scene width
-        Height = 8         % Scene height
-        Restitution = 0.5  
-        Mu = 0.5           %Friction coefficient
     end
 
     methods
@@ -130,8 +126,9 @@ classdef Scene < handle
                 return
             end
 
-            restitution = 0.8;
-            mu = 0.6;
+            eA = A.Restitution;
+            eB = B.Restitution;
+            mu = max(A.Mu,B.Mu);
 
             % Loop over all contact points
             for k = 1:size(contacts,1)
@@ -141,6 +138,7 @@ classdef Scene < handle
                 rA = pA - A.Pos;
                 rB = pB - B.Pos;
 
+                
                 % Velocities at contact
                 vA = A.Vel + [-A.Omega * rA(2);  A.Omega * rA(1)];
                 vB = B.Vel + [-B.Omega * rB(2);  B.Omega * rB(1)];
@@ -172,16 +170,16 @@ classdef Scene < handle
 
                 denom = invMassA + invMassB + raCrossN^2 * invIA + rbCrossN^2 * invIB;
 
-                j = -(1 + restitution) * vn / denom;
-                impulse = j * normal;
+                jA = -(1 + eA) * vn / denom;
+                jB = -(1 + eB) * vn / denom;
 
                 if ~A.Fixed
-                    A.Vel   = A.Vel   - impulse * invMassA;
-                    A.Omega = A.Omega - raCrossN * j * invIA;
+                    A.Vel   = A.Vel   - jA *normal * invMassA;
+                    A.Omega = A.Omega - raCrossN * jA * invIA;
                 end
                 if ~B.Fixed
-                    B.Vel   = B.Vel   + impulse * invMassB;
-                    B.Omega = B.Omega + rbCrossN * j * invIB;
+                    B.Vel   = B.Vel   + jB *normal * invMassB;
+                    B.Omega = B.Omega + rbCrossN * jB  * invIB;
                 end
 
                 %% -------- Friction impulse --------
@@ -199,7 +197,7 @@ classdef Scene < handle
                     jt = -dot(relV, tangent) / denomT;
 
                     % Coulomb friction
-                    jtMax = mu * j;
+                    jtMax = mu * max(jA,jB);
                     jt = max(-jtMax, min(jtMax, jt));
 
                     frictionImpulse = jt * tangent;
@@ -249,7 +247,7 @@ classdef Scene < handle
                 for i = 1:cols
                     pos = [ (i-1)*spacing; -(j-1)*spacing ]; % 2x1 vector, top-left origin
                     fixed = (j == 1 && i == 1); % top corner fixed
-                    b = Body(pos, [0;0], mass, 'circle', nodeRadius);
+                    b = Body(pos, [0;0], mass, 'circle', nodeRadius,[1 1 1]);
                     b.Fixed = fixed;
                     obj.addBody(b);
                     nodes{j,i} = b;
@@ -288,5 +286,56 @@ classdef Scene < handle
                 obj.Bodies(lostIdx), 'UniformOutput', false);
             obj.Bodies(lostIdx) = [];
         end
+
+        %% ------------- Serialisation and Saving ------------------
+        function S = toStruct(obj)
+    S.Bodies = cellfun(@(b)b.toStruct(), obj.Bodies, 'UniformOutput', false);
+    S.Constraints = cellfun(@(c)c.toStruct(), obj.Constraints, 'UniformOutput', false);
+end
+
+function fromStruct(obj, S)
+    obj.Bodies = {};
+    obj.Constraints = {};
+
+    % Bodies
+    for i = 1:numel(S.Bodies)
+        b = Body.fromStruct(S.Bodies{i});
+        obj.addBody(b);
+    end
+
+    % Constraints (must rebind body references)
+    for i = 1:numel(S.Constraints)
+        c = Constraint.fromStruct(S.Constraints{i}, obj.Bodies);
+        obj.addConstraint(c);
+    end
+end
+
+function resetEmpty(obj)
+    % Delete graphics for all bodies
+    if ~isempty(obj.Bodies)
+        for k = 1:numel(obj.Bodies)
+            b = obj.Bodies{k};
+            if isprop(b,'GraphicHandle') && ~isempty(b.GraphicHandle) && isvalid(b.GraphicHandle)
+                delete(b.GraphicHandle);
+            end
+            if isprop(b,'GraphicHandle')
+                b.GraphicHandle = [];
+            end
+        end
+    end
+
+    % Clear bodies and constraints
+    obj.Bodies = {};
+    obj.Constraints = {};
+end
+
+
+function resetDefault(obj)
+    obj.resetEmpty();
+    obj.setupDefaultScene();
+end
+
+
+
     end
 end

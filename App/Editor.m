@@ -11,6 +11,7 @@ classdef Editor < handle
         PanelWidth = 200
         GroundObj
         isCurrentlySelecting = false;
+        currentSceneData = {};
     end
 
     methods
@@ -27,63 +28,65 @@ classdef Editor < handle
         %% ----------------Menu----------------
         function createMenu(obj)
 
-            % Hide axes
-            obj.AxesHandle.Visible = 'off';
 
-            % Parent figure
+            obj.AxesHandle.Visible = 'off';
             fig = obj.AxesHandle.Parent;
             fig.Units = 'normalized';
 
-            % Size of menu panel (normalized)
-            menuW = 0.4;
-            menuH = 0.4;
+            menuW = 0.45;
+            menuH = 0.5;
+            menuX = (1-menuW)/2;
+            menuY = (1-menuH)/2;
 
-            % Center the panel in the figure
-            menuX = (1 - menuW) / 2;
-            menuY = (1 - menuH) / 2;
+            obj.Menu.MenuPanel = uipanel(fig, ...
+                'Units','normalized', ...
+                'Position',[menuX menuY menuW menuH], ...
+                'BorderType','none');
 
-            % Create the menu panel
-            obj.Menu.MenuPanel = uipanel(...
-                'Parent', fig, ...
-                'Title', '', ...        % no titlebar
-                'Units', 'normalized', ...
-                'Position', [menuX menuY menuW menuH], ...
-                'BorderType', 'none');
+            % --- Scene dropdown ---
+            obj.Menu.SceneList = uicontrol(obj.Menu.MenuPanel, ...
+                'Style','popupmenu', ...
+                'Units','normalized', ...
+                'Position',[0.2 0.75 0.6 0.12], ...
+                'String', obj.getSceneNames());
 
-            % Button geometry
-            buttonW = 0.6;      % 60% panel width
-            buttonH = 0.18;     % 18% panel height
-            buttonX = (1 - buttonW) / 2;  % center horizontally
+            obj.Menu.SceneList.Value = 1;
 
-            % Vertical positions (nicely spaced)
-            y1 = 0.65;
-            y2 = 0.40;
-            y3 = 0.15;
+            set(obj.Menu.SceneList, ...
+                'TooltipString','Select a scene to load');
 
-            % Create "Create New Scene"
-            obj.Menu.CreateNewScene = uicontrol(obj.Menu.MenuPanel, ...
-                'Style', 'pushbutton', ...
-                'String', 'Create New Scene', ...
-                'Units', 'normalized', ...
-                'Position', [buttonX y1 buttonW buttonH], ...
-                'Callback', @(~,~) obj.CreateNewScene());
 
-            % Create "Documentation"
-            obj.Menu.Documentation = uicontrol(obj.Menu.MenuPanel, ...
-                'Style', 'pushbutton', ...
-                'String', 'Documentation', ...
-                'Units', 'normalized', ...
-                'Position', [buttonX y2 buttonW buttonH], ...
-                'Callback', @(~,~) obj.SeeDocumentation());
-
-            % Create "Exit"
+            % --- Load scene ---
             uicontrol(obj.Menu.MenuPanel, ...
-                'Style', 'pushbutton', ...
-                'String', 'Exit', ...
-                'Units', 'normalized', ...
-                'Position', [buttonX y3 buttonW buttonH], ...
-                'Callback', @(~,~) close(fig));
+                'Style','pushbutton', ...
+                'String','Load Scene', ...
+                'Units','normalized', ...
+                'Position',[0.2 0.58 0.6 0.12], ...
+                'Callback', @(~,~)obj.loadSceneFromMenu());
 
+            % --- Create new scene ---
+            uicontrol(obj.Menu.MenuPanel, ...
+                'Style','pushbutton', ...
+                'String','Create New Scene', ...
+                'Units','normalized', ...
+                'Position',[0.2 0.41 0.6 0.12], ...
+                'Callback', @(~,~)obj.createNewSceneFromMenu());
+
+            % --- Docs ---
+            uicontrol(obj.Menu.MenuPanel, ...
+                'Style','pushbutton', ...
+                'String','Documentation', ...
+                'Units','normalized', ...
+                'Position',[0.2 0.24 0.6 0.12], ...
+                'Callback', @(~,~)obj.SeeDocumentation());
+
+            % --- Exit ---
+            uicontrol(obj.Menu.MenuPanel, ...
+                'Style','pushbutton', ...
+                'String','Exit', ...
+                'Units','normalized', ...
+                'Position',[0.2 0.07 0.6 0.12], ...
+                'Callback', @(~,~)close(fig));
         end
 
         %% ---------------Menu Functions-----------------
@@ -109,69 +112,159 @@ classdef Editor < handle
             obj.Core.run();
         end
 
-        function SeeDocumentation(~)
+        function SeeDocumentation(obj)
             % Get project root (parent of /app)
             projectRoot = fileparts(fileparts(mfilename('fullpath')));
+            docsDir = fullfile(projectRoot, 'docs');
 
-            outDir = fullfile(projectRoot, 'docs');
-            if ~exist(outDir, 'dir')
-                mkdir(outDir);
+            % Create docs folder if missing
+            if ~exist(docsDir, 'dir')
+                mkdir(docsDir);
             end
 
             % List of subfolders to include
             subFolders = {'App', 'Utils', 'Core'};
 
+            % Gather all .m files
             files = [];
-
             for i = 1:length(subFolders)
                 folderPath = fullfile(projectRoot, subFolders{i});
-                if exist(folderPath, 'dir')
-                    folderFiles = dir(fullfile(folderPath, '*.m'));
-                    files = [files; folderFiles];  % append
+                if exist(folderPath,'dir')
+                    folderFiles = dir(fullfile(folderPath,'*.m'));
+                    files = [files; folderFiles]; %#ok<AGROW>
                 end
             end
 
-
+            % Generate files that don't exist yet
             for k = 1:numel(files)
                 filePath = fullfile(files(k).folder, files(k).name);
                 [~, name] = fileparts(filePath);
 
-                % ==========================
-                % 1) Generate HTML
-                % ==========================
-                htmlOpts = struct( ...
-                    'format', 'html', ...
-                    'outputDir', outDir, ...
-                    'showCode', true, ...
-                    'evalCode', false ...
-                    );
-                try
-                    publish(filePath, htmlOpts);
-                catch ME
-                    warning("HTML generation failed for %s: %s", name, ME.message);
+                % HTML
+                htmlFile = fullfile(docsDir, [name,'.html']);
+                if ~exist(htmlFile,'file')
+                    try
+                        publish(filePath, struct('format','html','outputDir',docsDir,'showCode',true,'evalCode',false));
+                    catch ME
+                        warning("HTML generation failed for %s: %s", name, ME.message);
+                    end
                 end
 
-                % ==========================
-                % 2) Generate PDF
-                % ==========================
-                pdfOpts = struct( ...
-                    'format', 'pdf', ...
-                    'outputDir', outDir, ...
-                    'showCode', true, ...
-                    'evalCode', false ...
-                    );
-                try
-                    publish(filePath, pdfOpts);
-                catch ME
-                    warning("PDF generation failed for %s: %s", name, ME.message);
+                % PDF
+                pdfFile = fullfile(docsDir, [name,'.pdf']);
+                if ~exist(pdfFile,'file')
+                    try
+                        publish(filePath, struct('format','pdf','outputDir',docsDir,'showCode',true,'evalCode',false));
+                    catch ME
+                        warning("PDF generation failed for %s: %s", name, ME.message);
+                    end
                 end
             end
 
-            fprintf("Documentation generated in: %s\n", outDir);
+            % Open picker after generation
+            obj.showDocsPicker(docsDir);
+        end
+
+        function showDocsPicker(~, docsDir)
+            files = [dir(fullfile(docsDir,'*.html')); dir(fullfile(docsDir,'*.pdf'))];
+            if isempty(files)
+                errordlg('No documentation files found.','Docs');
+                return;
+            end
+            names = {files.name};
+
+            fig = figure('Name','Documentation', ...
+                'NumberTitle','off', 'MenuBar','none', 'ToolBar','none', ...
+                'Units','normalized', 'Position',[0.35 0.35 0.3 0.2], 'WindowStyle','modal');
+
+            popup = uicontrol(fig,'Style','popupmenu','Units','normalized',...
+                'Position',[0.1 0.6 0.8 0.2],'String', names);
+
+            uicontrol(fig,'Style','pushbutton','String','Open','Units','normalized',...
+                'Position',[0.1 0.25 0.35 0.2],'Callback', @(~,~)openSelected());
+
+            uicontrol(fig,'Style','pushbutton','String','Close','Units','normalized',...
+                'Position',[0.55 0.25 0.35 0.2],'Callback', @(~,~)close(fig));
+
+            function openSelected()
+                idx = popup.Value;
+                filePath = fullfile(docsDir, names{idx});
+                web(filePath,'-browser');
+            end
         end
 
 
+        function names = getSceneNames(obj)
+            dirPath = obj.getSceneDir();
+            files = dir(fullfile(dirPath,'*.mat'));
+
+            fileNames = erase({files.name}, '.mat');
+
+            % Default scene always first
+            names = [{'Default Scene'}, fileNames];
+        end
+
+
+        function loadSceneFromMenu(obj)
+            names = obj.Menu.SceneList.String;
+            idx   = obj.Menu.SceneList.Value;
+            choice = names{idx};
+
+
+            if strcmp(choice, 'Default Scene')
+                obj.Core.Scene.resetDefault();
+            else
+                file = fullfile(obj.getSceneDir(), [choice '.mat']);
+                if exist(file, 'file')
+                    loaded = load(file, 'data');          % load only 'data'
+                    if isfield(loaded, 'data')
+                        obj.Core.Scene.fromStruct(loaded.data);  % pass the scene struct
+                        obj.currentSceneData = loaded.data;
+                    else
+                        errordlg('Invalid scene file: missing "data"','Load Scene Error');
+                    end
+                else
+                    errordlg(['Scene file not found: ' file], 'Load Scene Error');
+                end
+            end
+
+            obj.startEditor(); % refresh editor
+        end
+
+        function createNewSceneFromMenu(obj)
+            obj.Core.Scene.resetEmpty();
+            obj.startEditor();
+        end
+
+        function resetToDefaultScene(obj)
+            obj.Core.Scene.resetDefault();
+            obj.startEditor();
+        end
+
         %% ---------------- UI ----------------
+        function startEditor(obj)
+
+            % Hide menu
+            fields = fieldnames(obj.Menu);
+            for i = 1:numel(fields)
+                if isvalid(obj.Menu.(fields{i}))
+                    obj.Menu.(fields{i}).Visible = 'off';
+                end
+            end
+
+            obj.AxesHandle.Visible = 'on';
+            obj.createUI();
+            obj.createToolbar();
+
+            fig = obj.AxesHandle.Parent;
+            fig.WindowButtonDownFcn   = @(~,~) obj.onMouseDown();
+            fig.WindowButtonUpFcn     = @(~,~) obj.onMouseUp();
+            fig.WindowButtonMotionFcn = @(~,~) obj.onMouseMove();
+            fig.WindowKeyPressFcn     = @(src,evt)obj.keyHandler(evt);
+
+            obj.Core.run();
+        end
+
         function createUI(obj)
             fig = obj.AxesHandle.Parent;
             fig.Units = 'normalized';
@@ -241,6 +334,11 @@ classdef Editor < handle
                 'Callback', @(s,e)obj.togglePause());
 
             % Exit button at bottom
+            uicontrol(obj.UI.MainPanel,'Style','pushbutton','String','Menu', ...
+                'Units','normalized','Position',[0.05 0.1 0.9 0.05], ...
+                'Callback', @(s,e)obj.goBackToMenu());
+
+            % Exit button at bottom
             uicontrol(obj.UI.MainPanel,'Style','pushbutton','String','Exit', ...
                 'Units','normalized','Position',[0.05 0.02 0.9 0.05], ...
                 'Callback', @(s,e)obj.exitEditor());
@@ -249,68 +347,91 @@ classdef Editor < handle
         function createToolbar(obj)
             fig = obj.AxesHandle.Parent;
 
-            % ---- Toolbar ----
-            tb = uitoolbar(fig);
-            obj.UI.ToolBar = struct();
-            obj.UI.ToolBar.Handle = tb;
-
-            % ---- Status Panel ----
-            obj.UI.StatusPanel = uipanel(fig, ...
+            % ---- Fake toolbar panel ----
+            toolbarHeight = 0.085; % slightly taller for comfort
+            obj.UI.ToolBar.Panel = uipanel(fig, ...
                 'Units','normalized', ...
-                'BorderType','none', ...
-                'Position',[0.01 0.94 0.7 0.05]);  % top-left strip
+                'Position',[0.03 0.92 0.75 toolbarHeight], ...
+                'BorderType','line', ...
+                'BackgroundColor',[0.2 0.2 0.2]); % dark gray
 
-            % FPS
-            obj.UI.Status.FPS = uicontrol(obj.UI.StatusPanel, ...
+            % ---- Status boxes (top row) ----
+            statusH = 0.45; spacing = 0.01;
+            statusW = 0.17; % slightly narrower
+            startX = 0.01; startY = 0.52;
+            fields = {'FPS','Bodies','Constraints','Paused'};
+            defaultTexts = {'FPS: --','Bodies: 0','Constraints: 0','RUNNING'};
+            for i = 1:numel(fields)
+                obj.UI.Status.(fields{i}) = uicontrol(obj.UI.ToolBar.Panel, ...
+                    'Style','text', ...
+                    'Units','normalized', ...
+                    'Position',[startX + (statusW+spacing)*(i-1), startY, statusW, statusH], ...
+                    'String', defaultTexts{i}, ...
+                    'BackgroundColor',[0.3 0.3 0.3], ...
+                    'ForegroundColor',[1 1 1], ...
+                    'FontWeight','bold', ...
+                    'HorizontalAlignment','center');
+            end
+
+            % ---- Control buttons (bottom row) ----
+            btnH = 0.45; startY = 0.02; btnSpacing = 0.015; btnW = 0.17; startX = 0.01;
+            btnBg = [0.4 0.4 0.4]; % uniform gray for buttons
+            btnFg = [1 1 1];       % white text
+
+            % Save
+            obj.UI.ToolBar.SaveBtn = uicontrol(obj.UI.ToolBar.Panel, ...
+                'Style','pushbutton', ...
+                'Units','normalized', ...
+                'Position',[startX, startY, btnW, btnH], ...
+                'String','💾 Save', ...
+                'FontSize',12, ...
+                'BackgroundColor', btnBg, ...
+                'ForegroundColor', btnFg, ...
+                'Callback', @(~,~)obj.saveSceneToFile());
+
+            % Load
+            obj.UI.ToolBar.LoadBtn = uicontrol(obj.UI.ToolBar.Panel, ...
+                'Style','pushbutton', ...
+                'Units','normalized', ...
+                'Position',[startX + (btnW+btnSpacing)*1, startY, btnW, btnH], ...
+                'String','📂 Load', ...
+                'FontSize',12, ...
+                'BackgroundColor', btnBg, ...
+                'ForegroundColor', btnFg, ...
+                'Callback', @(~,~)obj.loadSceneFromFile(obj.getSceneDir()));
+
+            % Background color
+            obj.UI.ToolBar.BgColorBtn = uicontrol(obj.UI.ToolBar.Panel, ...
+                'Style','pushbutton', ...
+                'Units','normalized', ...
+                'Position',[startX + (btnW+btnSpacing)*2, startY, btnW, btnH], ...
+                'String','🎨 BG', ...
+                'FontSize',12, ...
+                'BackgroundColor', btnBg, ...
+                'ForegroundColor', btnFg, ...
+                'Callback', @(~,~)obj.pickBackgroundColor());
+
+            % Help
+            obj.UI.ToolBar.HelpBtn = uicontrol(obj.UI.ToolBar.Panel, ...
+                'Style','pushbutton', ...
+                'Units','normalized', ...
+                'Position',[startX + (btnW+btnSpacing)*3, startY, btnW, btnH], ...
+                'String','❓ Help', ...
+                'FontSize',12, ...
+                'BackgroundColor', btnBg, ...
+                'ForegroundColor', btnFg, ...
+                'Callback', @(~,~)obj.openHelp());
+
+            % Mode hint (right-aligned)
+            obj.UI.ToolBar.ModeHint = uicontrol(obj.UI.ToolBar.Panel, ...
                 'Style','text', ...
                 'Units','normalized', ...
-                'HorizontalAlignment','left', ...
-                'Position',[0.00 0.1 0.25 0.8], ...
-                'String','FPS: --');
-
-            % Bodies
-            obj.UI.Status.Bodies = uicontrol(obj.UI.StatusPanel, ...
-                'Style','text', ...
-                'Units','normalized', ...
-                'HorizontalAlignment','left', ...
-                'Position',[0.26 0.1 0.25 0.8], ...
-                'String','Bodies: 0');
-
-            % Constraints
-            obj.UI.Status.Constraints = uicontrol(obj.UI.StatusPanel, ...
-                'Style','text', ...
-                'Units','normalized', ...
-                'HorizontalAlignment','left', ...
-                'Position',[0.35 0.1 0.30 0.8], ...
-                'String','Constraints: 0');
-
-            % Paused state
-            obj.UI.Status.Paused = uicontrol(obj.UI.StatusPanel, ...
-                'Style','text', ...
-                'Units','normalized', ...
-                'HorizontalAlignment','left', ...
-                'Position',[0.55 0.1 0.17 0.8], ...
-                'String','RUNNING', ...
-                'ForegroundColor',[0 0.6 0]);
-
-            % --- Background color picker ---
-            obj.UI.ToolBar.BgColorBtn = uicontrol(obj.UI.StatusPanel, ...
-                'Style', 'pushbutton', ...
-                'TooltipString', 'Pick Background Color', ...
-                'String', 'Pick Background Color', ...
-                'Units','normalized', ...
-                'Position',[0.65 0.1 0.2 0.8],...
-                'Callback', @(s,e)obj.pickBackgroundColor());
-
-            % --- Current mode hint ---
-            obj.UI.ToolBar.ModeHint = uicontrol(obj.UI.StatusPanel, ...
-                'Style', 'text', ...
-                'Units', 'normalized', ...
-                'HorizontalAlignment', 'left', ...
-                'Position', [0.9 0.1 0.18 0.8], ...  
-                'String', 'Mode: select');
-
-
+                'Position',[0.75, startY, 0.12, btnH], ...
+                'String','Mode: select', ...
+                'BackgroundColor',[0.2 0.2 0.2], ...
+                'ForegroundColor',[1 1 1], ...
+                'FontWeight','bold', ...
+                'HorizontalAlignment','center');
         end
 
         function updateToolbar(obj)
@@ -347,6 +468,41 @@ classdef Editor < handle
                 end
             end
         end
+
+        function saveSceneToFile(obj, defaultDir)
+            [file,path] = uiputfile('*.mat','Save Scene As', defaultDir);
+            if isequal(file,0); return; end
+            fullPath = fullfile(path,file);
+
+            try
+                data = obj.Core.Scene.toStruct();
+                save(fullPath,'data');
+                msgbox(['Scene saved to: ' fullPath],'Save Scene','help');
+            catch ME
+                errordlg(['Failed to save scene: ' ME.message],'Error');
+            end
+        end
+
+        function loadSceneFromFile(obj, defaultDir)
+            [file,path] = uigetfile('*.mat','Load Scene', defaultDir);
+            if isequal(file,0); return; end
+            fullPath = fullfile(path,file);
+
+            try
+                loaded = load(fullPath,'data');
+                obj.currentSceneData = loaded.data;
+                if isfield(loaded,'data')
+                    obj.Core.Scene.resetEmpty();
+                    obj.Core.Scene.fromStruct(loaded.data);
+                    msgbox(['Scene loaded: ' fullPath],'Load Scene','help');
+                else
+                    errordlg('Invalid scene file','Error');
+                end
+            catch ME
+                errordlg(['Failed to load scene: ' ME.message],'Error');
+            end
+        end
+
 
         %% ---------------- Mode handling ----------------
         function setMode(obj, mode)
@@ -390,6 +546,9 @@ classdef Editor < handle
                 selecting = true;
                 obj.SelectedBody = obj.pickBody(pos);
                 obj.SelectedConstraint = obj.pickConstraint(pos);
+            elseif strcmp(clickType,'extend')
+                obj.SelectedBody = obj.pickBody(pos);
+                obj.Mode = 'drag';
             end
 
             if selecting
@@ -618,11 +777,23 @@ classdef Editor < handle
             fig.Units = 'normalized';
         end
 
+        function openHelp(~)
+            web('docs/helper.html', '-browser');
+        end
+
+        function dirPath = getSceneDir(~)
+            projectRoot = fileparts(fileparts(mfilename('fullpath')));
+            dirPath = fullfile(projectRoot, 'scenes');
+            if ~exist(dirPath,'dir')
+                mkdir(dirPath);
+            end
+        end
+
+
         function togglePause(obj)
             obj.Core.Paused = ~obj.Core.Paused;
             obj.UI.PauseCheckbox.Value = obj.Core.Paused; % sync checkbox
         end
-
         function keyHandler(obj, evt)
             switch evt.Key
                 case 'escape'
@@ -648,14 +819,84 @@ classdef Editor < handle
                     obj.UI.GroundEnable.Value = ~obj.UI.GroundEnable.Value;
                     obj.setGround();  % same as clicking the checkbox
 
-                case 'q'  % reset scene
-                    obj.Scene.reset();  % you need a reset function in Scene
-                    obj.Scene.updateGraphics(obj.AxesHandle);  % redraw
+                case 'd'  % select drag
+                    obj.setMode('drag');  % enter drag mode
+
+                case 'q'  % reset scene to default
+                    obj.Core.Scene.fromStruct(obj.currentSceneData);
+                    obj.Scene.updateGraphics(obj.AxesHandle);  % redraw scene
+
+                case 'm'  % go back to menu (assuming a button or action is added for this)
+                    obj.goBackToMenu();  % trigger menu transition, you will implement this method
             end
         end
 
+        function goBackToMenu(obj)
+            % ---------------- Hide/Disable all editor UI elements ----------------
+
+            % Hide all elements in the main editor UI (if they exist)
+            if isfield(obj.UI, 'MainPanel') && ishandle(obj.UI.MainPanel)
+                obj.UI.MainPanel.Visible = 'off';
+            end
+
+            % Hide the ToolBar (if it exists)
+            if isfield(obj.UI, 'ToolBar') && ~isempty(obj.UI.ToolBar)
+                fieldsToolBar = fieldnames(obj.UI.ToolBar);
+                for i = 1:numel(fieldsToolBar)
+                    if ishandle(obj.UI.ToolBar.(fieldsToolBar{i}))
+                        try
+                            obj.UI.ToolBar.(fieldsToolBar{i}).Visible = 'off';  % Hide ToolBar components
+                        catch
+                            % In case a component doesn't support 'Visible'
+                            obj.UI.ToolBar.(fieldsToolBar{i}).Enable = 'off';  % Disable instead
+                        end
+                    end
+                end
+            end
+
+            % Reset the editor's core environment, such as clearing selection, mode, etc.
+            obj.Mode = 'select';  % Set mode back to default selection
+            obj.SelectedBody = [];
+            obj.SelectedConstraint = [];
+
+            % Disable all mouse event handlers
+            fig = obj.AxesHandle.Parent;
+            fig.WindowButtonDownFcn = '';   % Disable mouse down events
+            fig.WindowButtonUpFcn = '';     % Disable mouse up events
+            fig.WindowButtonMotionFcn = ''; % Disable mouse motion events
+            fig.WindowKeyPressFcn = @(src,evt)exit(src,evt);     % Disable keyboard events
+
+            function exit(~, evt)
+                % Check if the pressed key is the Escape key
+                if strcmp(evt.Key, 'escape')
+                    close all;  % Close the figure/app entirely
+                end
+            end
+
+
+            % ---------------- Reset UI structures to initial empty state ----------------
+            obj.UI = struct();  % Clear out the entire UI structure
+            obj.UI.ToolBar = struct();  % Clear out the ToolBar structure
+
+            obj.AxesHandle.Visible = 'off';
+            % ---------------- Show the Main Menu ----------------
+            % Make the menu panel visible
+            if isfield(obj.Menu, 'MenuPanel') && ishandle(obj.Menu.MenuPanel)
+                obj.Menu.MenuPanel.Visible = 'on';
+            end
+
+            % Optionally, reset the scene or data to the initial empty state if desired
+            obj.Core.Scene.resetEmpty(); % Or reset to default if that fits better
+
+            % Optionally, reset any other settings (e.g., gravity, dt, etc.) to default if desired
+            obj.Core.Gravity = [0; -9.81];  % Default gravity (just an example)
+            obj.Core.dt = 0.016;  % Default time step (example)
+            obj.Core.Paused = false;  % Default paused state (if applicable)
+        end
+
+
         function openBodyPropertyPanel(obj,mouseX,mouseY)
-            if isempty(obj.SelectedBody) || obj.isCurrentlySelecting == true
+            if isempty(obj.SelectedBody) || obj.isCurrentlySelecting
                 return;
             end
 
@@ -667,95 +908,99 @@ classdef Editor < handle
                 'MenuBar','none','ToolBar','none','Resize','off', ...
                 'Position',[mouseX-300 mouseY-400 300 400],...
                 'CloseRequestFcn',@(src,~)closer(src));
+
             function closer(src)
                 obj.isCurrentlySelecting = false;
                 obj.SelectedBody = [];
                 delete(src);
             end
             obj.UI.tempBody = f;
-            y = 350; dy = 30; xpad = 10;
 
-            % Position X
-            uicontrol(f,'Style','text','String','Position X','Position',[xpad y 80 20]);
-            posXEdit = uicontrol(f,'Style','edit','String',num2str(body.Pos(1)),'Position',[100 y 100 20], ...
+            % --- layout parameters ---
+            yStart = 370; dy = 28; xpad = 10; editX = 100; editW = 100; labelW = 80;
+            y = yStart;
+
+            % --- Position ---
+            uicontrol(f,'Style','text','String','Position X','Position',[xpad y labelW 20]);
+            posXEdit = uicontrol(f,'Style','edit','String',num2str(body.Pos(1)),'Position',[editX y editW 20], ...
                 'Callback', @(s,e)setPosX());
-
             y = y - dy;
-            % Position Y
-            uicontrol(f,'Style','text','String','Position Y','Position',[xpad y 80 20]);
-            posYEdit = uicontrol(f,'Style','edit','String',num2str(body.Pos(2)),'Position',[100 y 100 20], ...
+
+            uicontrol(f,'Style','text','String','Position Y','Position',[xpad y labelW 20]);
+            posYEdit = uicontrol(f,'Style','edit','String',num2str(body.Pos(2)),'Position',[editX y editW 20], ...
                 'Callback', @(s,e)setPosY());
-
             y = y - dy;
-            % Velocity X
-            uicontrol(f,'Style','text','String','Velocity X','Position',[xpad y 80 20]);
-            velXEdit = uicontrol(f,'Style','edit','String',num2str(body.Vel(1)),'Position',[100 y 100 20], ...
+
+            % --- Velocity ---
+            uicontrol(f,'Style','text','String','Velocity X','Position',[xpad y labelW 20]);
+            velXEdit = uicontrol(f,'Style','edit','String',num2str(body.Vel(1)),'Position',[editX y editW 20], ...
                 'Callback', @(s,e)setVelX());
-
             y = y - dy;
-            % Velocity Y
-            uicontrol(f,'Style','text','String','Velocity Y','Position',[xpad y 80 20]);
-            velYEdit = uicontrol(f,'Style','edit','String',num2str(body.Vel(2)),'Position',[100 y 100 20], ...
+
+            uicontrol(f,'Style','text','String','Velocity Y','Position',[xpad y labelW 20]);
+            velYEdit = uicontrol(f,'Style','edit','String',num2str(body.Vel(2)),'Position',[editX y editW 20], ...
                 'Callback', @(s,e)setVelY());
-
             y = y - dy;
-            % Angle
-            uicontrol(f,'Style','text','String','Angle','Position',[xpad y 80 20]);
-            angleEdit = uicontrol(f,'Style','edit','String',num2str(body.Angle),'Position',[100 y 100 20], ...
+
+            % --- Rotation ---
+            uicontrol(f,'Style','text','String','Angle','Position',[xpad y labelW 20]);
+            angleEdit = uicontrol(f,'Style','edit','String',num2str(body.Angle),'Position',[editX y editW 20], ...
                 'Callback', @(s,e)setAngle());
-
             y = y - dy;
-            % Angular velocity
-            uicontrol(f,'Style','text','String','Omega','Position',[xpad y 80 20]);
-            omegaEdit = uicontrol(f,'Style','edit','String',num2str(body.Omega),'Position',[100 y 100 20], ...
+
+            uicontrol(f,'Style','text','String','Omega','Position',[xpad y labelW 20]);
+            omegaEdit = uicontrol(f,'Style','edit','String',num2str(body.Omega),'Position',[editX y editW 20], ...
                 'Callback', @(s,e)setOmega());
-
             y = y - dy;
-            % Mass
-            uicontrol(f,'Style','text','String','Mass','Position',[xpad y 80 20]);
-            massEdit = uicontrol(f,'Style','edit','String',num2str(body.Mass),'Position',[100 y 100 20], ...
+
+            % --- Physical properties ---
+            uicontrol(f,'Style','text','String','Mass','Position',[xpad y labelW 20]);
+            massEdit = uicontrol(f,'Style','edit','String',num2str(body.Mass),'Position',[editX y editW 20], ...
                 'Callback', @(s,e)setMass());
-
             y = y - dy;
-            % Fixed
-            fixedCheck = uicontrol(f,'Style','checkbox','String','Fixed','Value',body.Fixed,'Position',[xpad y 100 20], ...
+
+            uicontrol(f,'Style','text','String','Fixed','Position',[xpad y labelW 20]);
+            fixedCheck = uicontrol(f,'Style','checkbox','Value',body.Fixed,'Position',[editX y 100 20], ...
                 'Callback', @(s,e)setFixed());
-
             y = y - dy;
-            % Shape
-            uicontrol(f,'Style','text','String','Shape','Position',[xpad y 80 20]);
-            uicontrol(f,'Style','text','String',body.Shape,'Position',[100 y 100 20]);
 
+            uicontrol(f,'Style','text','String','Restitution','Position',[xpad y labelW 20]);
+            restitutionEdit = uicontrol(f,'Style','edit','String',num2str(body.Restitution),'Position',[editX y editW 20], ...
+                'Callback', @(s,e)setRestitution());
             y = y - dy;
+
+            uicontrol(f,'Style','text','String','Friction (Mu)','Position',[xpad y labelW 20]);
+            muEdit = uicontrol(f,'Style','edit','String',num2str(body.Mu),'Position',[editX y editW 20], ...
+                'Callback', @(s,e)setMu());
+            y = y - dy;
+
+            % --- Shape ---
+            uicontrol(f,'Style','text','String','Shape','Position',[xpad y labelW 20]);
+            uicontrol(f,'Style','text','String',body.Shape,'Position',[editX y editW 20]);
+            y = y - dy;
+
             if strcmp(body.Shape,'circle')
-                % Radius
-                uicontrol(f,'Style','text','String','Radius','Position',[xpad y 80 20]);
-                radiusEdit = uicontrol(f,'Style','edit','String',num2str(body.Radius),'Position',[100 y 100 20], ...
+                uicontrol(f,'Style','text','String','Radius','Position',[xpad y labelW 20]);
+                radiusEdit = uicontrol(f,'Style','edit','String',num2str(body.Radius),'Position',[editX y editW 20], ...
                     'Callback', @(s,e)setRadius());
-            else
-                % Width
-                uicontrol(f,'Style','text','String','Width','Position',[xpad y 80 20]);
-                widthEdit = uicontrol(f,'Style','edit','String',num2str(body.Width),'Position',[100 y 100 20], ...
-                    'Callback', @(s,e)setWidth());
-
                 y = y - dy;
-                % Height
-                uicontrol(f,'Style','text','String','Height','Position',[xpad y 80 20]);
-                heightEdit = uicontrol(f,'Style','edit','String',num2str(body.Height),'Position',[100 y 100 20], ...
+            else
+                uicontrol(f,'Style','text','String','Width','Position',[xpad y labelW 20]);
+                widthEdit = uicontrol(f,'Style','edit','String',num2str(body.Width),'Position',[editX y editW 20], ...
+                    'Callback', @(s,e)setWidth());
+                y = y - dy;
+
+                uicontrol(f,'Style','text','String','Height','Position',[xpad y labelW 20]);
+                heightEdit = uicontrol(f,'Style','edit','String',num2str(body.Height),'Position',[editX y editW 20], ...
                     'Callback', @(s,e)setHeight());
+                y = y - dy;
             end
 
-            % --- Body color ---
+            % --- Color ---
+            uicontrol(f,'Style','text','String','Color','Position',[xpad y labelW 20]);
+            bodyColorBtn = uicontrol(f,'Style','pushbutton','BackgroundColor', body.Color, ...
+                'Position',[editX y 100 20],'Callback', @(s,e)pickBodyColor());
             y = y - dy;
-            uicontrol(f,'Style','text','String','Color','Position',[xpad y 80 20]);
-
-            bodyColorBtn = uicontrol(f,'Style','pushbutton', ...
-                'BackgroundColor', body.Color, ...
-                'Position',[100 y 100 20], ...
-                'Callback', @(s,e)pickBodyColor());
-
-
-
 
             % --- Callback functions ---
             function setPosX(), body.Pos(1) = str2double(posXEdit.String); body.updateGraphic(obj.AxesHandle); end
@@ -764,6 +1009,20 @@ classdef Editor < handle
             function setVelY(), body.Vel(2) = str2double(velYEdit.String); end
             function setAngle(), body.Angle = str2double(angleEdit.String); body.updateGraphic(obj.AxesHandle); end
             function setOmega(), body.Omega = str2double(omegaEdit.String); end
+            function setMass()
+                body.Mass = str2double(massEdit.String);
+                if strcmp(body.Shape,'circle')
+                    body.Inertia = 0.5 * body.Mass * body.Radius^2;
+                else
+                    body.Inertia = body.Mass * (body.Width^2 + body.Height^2)/12;
+                end
+            end
+            function setFixed(), body.Fixed = fixedCheck.Value; end
+            function setRadius(), body.Radius = str2double(radiusEdit.String); body.Inertia = 0.5 * body.Mass * body.Radius^2; body.updateGraphic(obj.AxesHandle); end
+            function setWidth(), body.Width = str2double(widthEdit.String); body.Inertia = body.Mass * (body.Width^2 + body.Height^2)/12; body.updateGraphic(obj.AxesHandle); end
+            function setHeight(), body.Height = str2double(heightEdit.String); body.Inertia = body.Mass * (body.Width^2 + body.Height^2)/12; body.updateGraphic(obj.AxesHandle); end
+            function setRestitution(), body.Restitution = str2double(restitutionEdit.String); end
+            function setMu(), body.Mu = str2double(muEdit.String); end
             function pickBodyColor()
                 c = uisetcolor(body.Color);
                 if length(c) == 3
@@ -771,27 +1030,6 @@ classdef Editor < handle
                     body.updateGraphic(obj.AxesHandle);
                     bodyColorBtn.BackgroundColor = c;
                 end
-            end
-            function setMass()
-                body.Mass = str2double(massEdit.String);
-                if strcmp(body.Shape,'circle'), body.Inertia = 0.5 * body.Mass * body.Radius^2;
-                else, body.Inertia = body.Mass * (body.Width^2 + body.Height^2)/12; end
-            end
-            function setFixed(), body.Fixed = fixedCheck.Value; end
-            function setRadius()
-                body.Radius = str2double(radiusEdit.String);
-                body.Inertia = 0.5 * body.Mass * body.Radius^2;
-                body.updateGraphic(obj.AxesHandle);
-            end
-            function setWidth()
-                body.Width = str2double(widthEdit.String);
-                body.Inertia = body.Mass * (body.Width^2 + body.Height^2)/12;
-                body.updateGraphic(obj.AxesHandle);
-            end
-            function setHeight()
-                body.Height = str2double(heightEdit.String);
-                body.Inertia = body.Mass * (body.Width^2 + body.Height^2)/12;
-                body.updateGraphic(obj.AxesHandle);
             end
         end
 

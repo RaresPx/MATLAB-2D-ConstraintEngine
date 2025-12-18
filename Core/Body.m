@@ -17,6 +17,8 @@ classdef Body < handle
         Active = true;
         Dragged = false;
         Color = [0 0 0];
+        Restitution = 0.5
+        Mu = 0.5           %Friction coefficient
     end
 
     methods
@@ -57,9 +59,9 @@ classdef Body < handle
                 h = obj.Height / 2;
                 % Proper vertex ordering (no duplicate last vertex)
                 corners = [-w,  w,  w, -w;
-                           -h, -h,  h,  h];
+                    -h, -h,  h,  h];
                 R = [cos(obj.Angle), -sin(obj.Angle);
-                     sin(obj.Angle),  cos(obj.Angle)];
+                    sin(obj.Angle),  cos(obj.Angle)];
                 verts = R * corners + obj.Pos;
             end
         end
@@ -83,5 +85,53 @@ classdef Body < handle
         function tf = isFixed(obj)
             tf = obj.Fixed;
         end
+
+        function S = toStruct(obj)
+            S.Pos = obj.Pos;
+            S.Vel = obj.Vel;
+            S.Angle = obj.Angle;
+            S.Omega = obj.Omega;
+
+            S.Mass = obj.Mass;
+            S.Shape = obj.Shape;
+            S.Fixed = obj.Fixed;
+            S.Color = obj.Color;
+
+            if strcmp(obj.Shape,'circle')
+                S.Size = obj.Radius;
+            else
+                S.Size = [obj.Width, obj.Height];
+            end
+
+            S.Restitution = obj.Restitution;
+            S.Mu = obj.Mu;
+        end
+
     end
+    methods (Static)
+        function b = fromStruct(S)
+            b = Body( ...
+                S.Pos, ...
+                S.Vel, ...
+                S.Mass, ...
+                S.Shape, ...
+                S.Size, ...
+                S.Color, ...
+                S.Fixed ...
+                );
+
+            % Restore kinematics
+            b.Angle = S.Angle;
+            b.Omega = S.Omega;
+
+            % Restore material
+            if isfield(S,'Restitution')
+                b.Restitution = S.Restitution;
+            end
+            if isfield(S,'Mu')
+                b.Mu = S.Mu;
+            end
+        end
+    end
+
 end

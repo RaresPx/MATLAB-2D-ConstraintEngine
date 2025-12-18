@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Help Documentation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #2C3E50;
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .highlight {
+            color: #E74C3C;
+            font-weight: bold;
+        }
+        ul {
+            margin-left: 20px;
+        }
+        pre {
+            background-color: #2C3E50;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Editor Help Documentation</h1>
+    
+    <!-- General Overview -->
+    <div class="section">
+        <h2>Introduction</h2>
+        <p>Welcome to the interactive editor! This application allows you to manipulate objects and manage various settings in your scene. Use the toolbar and mode buttons to navigate through different tools and functionalities.</p>
+    </div>
+
+    <!-- Mouse Functionality -->
+    <div class="section">
+        <h2>Mouse Interactions</h2>
+        <p>Your mouse is key to interacting with the scene. Below are some of the mouse functions you can use:</p>
+        <ul>
+            <li><span class="highlight">Left-click:</span> Select or place objects in the scene. Depending on the mode, clicking will either add new objects or select existing ones for manipulation.</li>
+            <li><span class="highlight">Right-click:</span> Open a properties panel for the selected object. You can adjust various settings for the object here.</li>
+            <li><span class="highlight">Drag:</span> While in the <span class="highlight">"drag"</span> mode, you can click and hold an object to drag it around the scene.</li>
+            <li><span class="highlight">Add Constraint:</span> While in the <span class="highlight">"addConstraint"</span> mode, left-click to pick a second body and define a constraint between the first and the second body.</li>
+        </ul>
+        <p>To exit any interaction, you can simply release the mouse button, and the object or mode will be deselected. You can then proceed with other actions.</p>
+    </div>
+
+    <!-- Editor Modes -->
+    <div class="section">
+        <h2>Editor Modes</h2>
+        <p>Each mode provides different functionality. You can switch between modes using the toolbar buttons or hotkeys:</p>
+        <ul>
+            <li><span class="highlight">Select Mode:</span> Use this mode to interact with objects, select them, and move them around.</li>
+            <li><span class="highlight">Add Circle:</span> Adds a circle to the scene when you click in the desired location.</li>
+            <li><span class="highlight">Add Rectangle:</span> Adds a rectangle to the scene. Click to place the rectangle.</li>
+            <li><span class="highlight">Add Constraint:</span> Allows you to create constraints between two objects in the scene. This is used for physics simulations.</li>
+            <li><span class="highlight">Delete:</span> Select objects to delete them from the scene.</li>
+        </ul>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="section">
+        <h2>Toolbar Overview</h2>
+        <p>The toolbar at the top of the editor provides quick access to various useful functions. Here's a breakdown of the available buttons:</p>
+        <ul>
+            <li><span class="highlight">Save (💾):</span> Saves the current scene to a file. Use this button to store your scene data.</li>
+            <li><span class="highlight">Load (📂):</span> Loads a previously saved scene file. Use this to restore your work.</li>
+            <li><span class="highlight">Background Color (🎨):</span> Change the background color of the scene by clicking this button. It opens a color picker for customization.</li>
+            <li><span class="highlight">Help (❓):</span> Opens this help documentation in a new browser tab. Use this to get assistance with the editor features.</li>
+            <li><span class="highlight">Mode Hint:</span> Displays the currently selected mode in the toolbar. This helps you quickly identify what action you are currently performing.</li>
+        </ul>
+        <p>Each of these buttons allows you to quickly change or interact with the scene without needing to navigate through menus or other interface components.</p>
+    </div>
+
+    <!-- Keyboard Shortcuts -->
+    <div class="section">
+        <h2>Keyboard Shortcuts</h2>
+        <p>Here are some useful keyboard shortcuts to make your editing faster:</p>
+        <ul>
+            <li><span class="highlight">Esc:</span> Closes the application immediately.</li>
+            <li><span class="highlight">Spacebar:</span> Toggles the pause state of the simulation.</li>
+            <li><span class="highlight">C:</span> Switches to "Add Circle" mode.</li>
+            <li><span class="highlight">R:</span> Switches to "Add Rectangle" mode.</li>
+            <li><span class="highlight">K:</span> Switches to "Add Constraint" mode.</li>
+            <li><span class="highlight">G:</span> Toggles the ground in the scene.</li>
+            <li><span class="highlight">D:</span> Switches to "Drag" mode to move objects.</li>
+            <li><span class="highlight">Q:</span> Resets the scene to its default state.</li>
+            <li><span class="highlight">M:</span> Opens the menu and exits the editor.</li>
+        </ul>
+    </div>
+
+    <!-- Additional Information -->
+    <div class="section">
+        <h2>Additional Information</h2>
+        <p>If you have any further questions, feel free to consult the documentation in the main menu!</p>
+    </div>
+
+</body>
+</html>
