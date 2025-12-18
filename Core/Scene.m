@@ -263,9 +263,9 @@ classdef Scene < handle
                 b = Body.fromStruct(S.Bodies{i});
                 obj.addBody(b);
             end
-            % Constraints (must rebind body references)
+            % Constraints (must rebind body references) #Broken
             for i = 1:numel(S.Constraints)
-                c = Constraint.fromStruct(S.Constraints{i}, obj.Bodies);
+                c = Constraint.fromStruct(S.Constraints{i});
                 obj.addConstraint(c);
             end
         end

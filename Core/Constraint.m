@@ -53,5 +53,20 @@ classdef Constraint < handle
                 obj.GraphicHandle.YData = [obj.BodyA.Pos(2), obj.BodyB.Pos(2)];
             end
         end
+        function S = toStruct(obj)
+            S.BodyA = obj.BodyA;
+            S.BodyB = obj.BodyB;
+            S.RestLength = obj.RestLength;
+            S.Stiffness = obj.Stiffness;
+        end
+    end
+    methods (Static)
+        function c = fromStruct(S)
+            c = Constraint( ...
+                S.BodyA, ...
+                S.BodyB, ...
+                S.RestLength, ...
+                S.Stiffness);
+        end
     end
 end
