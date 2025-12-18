@@ -1,4 +1,7 @@
 classdef Editor < handle
+    %EDITOR - UI editor for scene and object interaction
+    %   Editor provides selection, mode management, and references to core
+    %   scene objects used by the GUI.
     properties
         Core            % Core class reference
         Scene           % Scene reference
@@ -16,102 +19,85 @@ classdef Editor < handle
 
     methods
         function obj = Editor(core, scene, ax)
+          % EDITOR - Construct Editor and wire core callbacks
+          %
+          % Input arguments:
+          % core  - core controller providing onTick callback
+          % scene - scene model the editor will operate on
+          % ax    - axes handle for rendering/UI placement
             obj.Core = core;
             obj.Scene = scene;
             obj.AxesHandle = ax;
-
             obj.Core.onTick = @()obj.updateToolbar();
-
             obj.createMenu();
         end
-
         %% ----------------Menu----------------
         function createMenu(obj)
-
-
+          % CREATEMENU - Build and display the main UI menu on the axes' parent
             obj.AxesHandle.Visible = 'off';
             fig = obj.AxesHandle.Parent;
             fig.Units = 'normalized';
-
-            menuW = 0.45;
-            menuH = 0.5;
+            menuW = 0.65;
+            menuH = 0.8;
             menuX = (1-menuW)/2;
             menuY = (1-menuH)/2;
-
+            % --- Menu panel ---
             obj.Menu.MenuPanel = uipanel(fig, ...
                 'Units','normalized', ...
                 'Position',[menuX menuY menuW menuH], ...
                 'BorderType','none');
-
+            % === Background image ===
+            bgAxes = axes('Parent', obj.Menu.MenuPanel, ...
+                'Units','normalized', ...
+                'Position',[0 0 1 1]);
+            bgImg = imread(fullfile('assets','background.png'));
+            % --- Blur ---
+            bgImg = imgaussfilt(bgImg, 3);   % increase (8–12) for more blur
+            % --- Darken ---
+            bgImg = im2double(bgImg);
+            bgImg = bgImg * 0.55;            % 0.4–0.7 is a good range
+            image(bgAxes, bgImg);
+            axis(bgAxes,'off');
+            axis(bgAxes,'normal');
+            uistack(bgAxes,'bottom');
             % --- Scene dropdown ---
             obj.Menu.SceneList = uicontrol(obj.Menu.MenuPanel, ...
                 'Style','popupmenu', ...
                 'Units','normalized', ...
-                'Position',[0.2 0.75 0.6 0.12], ...
+                'Position',[0.35 0.65 0.3 0.09], ...
                 'String', obj.getSceneNames());
-
             obj.Menu.SceneList.Value = 1;
-
-            set(obj.Menu.SceneList, ...
-                'TooltipString','Select a scene to load');
-
-
+            obj.Menu.SceneList.TooltipString = 'Select a scene to load';
             % --- Load scene ---
             uicontrol(obj.Menu.MenuPanel, ...
                 'Style','pushbutton', ...
                 'String','Load Scene', ...
                 'Units','normalized', ...
-                'Position',[0.2 0.58 0.6 0.12], ...
+                'Position',[0.35 0.55 0.3 0.09], ...
                 'Callback', @(~,~)obj.loadSceneFromMenu());
-
             % --- Create new scene ---
             uicontrol(obj.Menu.MenuPanel, ...
                 'Style','pushbutton', ...
                 'String','Create New Scene', ...
                 'Units','normalized', ...
-                'Position',[0.2 0.41 0.6 0.12], ...
+                'Position',[0.35 0.4 0.3 0.09], ...
                 'Callback', @(~,~)obj.createNewSceneFromMenu());
-
             % --- Docs ---
             uicontrol(obj.Menu.MenuPanel, ...
                 'Style','pushbutton', ...
                 'String','Documentation', ...
                 'Units','normalized', ...
-                'Position',[0.2 0.24 0.6 0.12], ...
+                'Position',[0.35 0.25 0.3 0.09], ...
                 'Callback', @(~,~)obj.SeeDocumentation());
-
             % --- Exit ---
             uicontrol(obj.Menu.MenuPanel, ...
                 'Style','pushbutton', ...
                 'String','Exit', ...
                 'Units','normalized', ...
-                'Position',[0.2 0.07 0.6 0.12], ...
+                'Position',[0.35 0.1 0.3 0.09], ...
                 'Callback', @(~,~)close(fig));
         end
-
         %% ---------------Menu Functions-----------------
-        function CreateNewScene(obj)
-            fields = fieldnames(obj.Menu);
-            for i = 1:numel(fields)
-                if isvalid(obj.Menu.(fields{i}))
-                    obj.Menu.(fields{i}).Visible = 'off';
-                end
-            end
-
-            obj.AxesHandle.Visible = 'on';
-            obj.createUI();
-            obj.createToolbar();
-
-            % Set up mouse events for interactions
-            fig = obj.AxesHandle.Parent;
-            fig.WindowButtonDownFcn   = @(~,~) obj.onMouseDown();
-            fig.WindowButtonUpFcn     = @(~,~) obj.onMouseUp();
-            fig.WindowButtonMotionFcn = @(~,~) obj.onMouseMove();
-            fig.WindowKeyPressFcn = @(src, evt) obj.keyHandler(evt);
-
-            obj.Core.run();
-        end
-
         function SeeDocumentation(obj)
             % Get project root (parent of /app)
             projectRoot = fileparts(fileparts(mfilename('fullpath')));
@@ -193,7 +179,6 @@ classdef Editor < handle
             end
         end
 
-
         function names = getSceneNames(obj)
             dirPath = obj.getSceneDir();
             files = dir(fullfile(dirPath,'*.mat'));
@@ -204,7 +189,6 @@ classdef Editor < handle
             names = [{'Default Scene'}, fileNames];
         end
 
-
         function loadSceneFromMenu(obj)
             names = obj.Menu.SceneList.String;
             idx   = obj.Menu.SceneList.Value;
@@ -213,6 +197,7 @@ classdef Editor < handle
 
             if strcmp(choice, 'Default Scene')
                 obj.Core.Scene.resetDefault();
+                obj.currentSceneData = "default";
             else
                 file = fullfile(obj.getSceneDir(), [choice '.mat']);
                 if exist(file, 'file')
@@ -528,9 +513,9 @@ classdef Editor < handle
             if strcmp(clickType,'normal')
                 switch obj.Mode
                     case 'addCircle'
-                        obj.Scene.addBody(Body(pos, [0;0], 1, 'circle', 0.5, [rand(1) rand(1) rand(1)]));
+                        obj.Scene.addBody(Body(pos, [0;0], 5, 'circle', 0.5, [rand(1) rand(1) rand(1)]));
                     case 'addRect'
-                        obj.Scene.addBody(Body(pos, [0;0], 1, 'rect', [3 1],[rand(1) rand(1) rand(1)]));
+                        obj.Scene.addBody(Body(pos, [0;0], 10, 'rect', [1 1],[rand(1) rand(1) rand(1)]));
                     case 'drag'
                         obj.SelectedBody = obj.pickBody(pos);
                     case 'select'
@@ -667,234 +652,6 @@ classdef Editor < handle
         end
 
         %% ---------------- Property Editing ----------------
-        function updatePropertyPanel(obj)
-            % Clear panel
-            delete(allchild(obj.UI.PropPanel));
-            y = 120; dy = 30; xpad = 10;
-
-            if ~isempty(obj.SelectedBody)
-                uicontrol(obj.UI.PropPanel, 'Style', 'text', 'String', 'Body Properties', ...
-                    'Position', [xpad y 160 20], 'FontWeight', 'bold');
-                y = y - dy;
-                uicontrol(obj.UI.PropPanel, 'Style', 'text', 'String', 'Mass', 'Position', [xpad y 60 20]);
-                obj.UI.MassEdit = uicontrol(obj.UI.PropPanel, 'Style', 'edit', 'String', ...
-                    num2str(obj.SelectedBody.Mass), 'Position', [xpad+70 y 50 20], ...
-                    'Callback', @(s,e)obj.setBodyProperty('Mass'));
-                y = y - dy;
-
-                obj.UI.FixedCheckbox = uicontrol(obj.UI.PropPanel, 'Style', 'checkbox', ...
-                    'String', 'Fixed', 'Value', obj.SelectedBody.Fixed, ...
-                    'Position', [xpad y 100 20], 'Callback', @(s,e)obj.setBodyProperty('Fixed'));
-
-            elseif ~isempty(obj.SelectedConstraint)
-                uicontrol(obj.UI.PropPanel, 'Style', 'text', 'String', 'Constraint Properties', ...
-                    'Position', [xpad y 160 20], 'FontWeight', 'bold');
-                y = y - dy;
-                uicontrol(obj.UI.PropPanel, 'Style', 'text', 'String', 'RestLength', ...
-                    'Position', [xpad y 60 20]);
-                obj.UI.RestLengthEdit = uicontrol(obj.UI.PropPanel, 'Style', 'edit', ...
-                    'String', num2str(obj.SelectedConstraint.RestLength), ...
-                    'Position', [xpad+70 y 50 20], 'Callback', @(s,e)obj.setConstraintProperty('RestLength'));
-                y = y - dy;
-
-                uicontrol(obj.UI.PropPanel, 'Style', 'text', 'String', 'Stiffness', ...
-                    'Position', [xpad y 60 20]);
-                obj.UI.ElasticityEdit = uicontrol(obj.UI.PropPanel, 'Style', 'edit', ...
-                    'String', num2str(obj.SelectedConstraint.Stiffness), ...
-                    'Position', [xpad+70 y 50 20], 'Callback', @(s,e)obj.setConstraintProperty('Stiffness'));
-            end
-        end
-
-        function setBodyProperty(obj, prop)
-            if isempty(obj.SelectedBody), return; end
-            switch prop
-                case 'Mass'
-                    obj.SelectedBody.Mass = str2double(obj.UI.MassEdit.String);
-                case 'Fixed'
-                    obj.SelectedBody.Fixed = obj.UI.FixedCheckbox.Value;
-            end
-        end
-
-        function setConstraintProperty(obj, prop)
-            if isempty(obj.SelectedConstraint), return; end
-            switch prop
-                case 'RestLength'
-                    obj.SelectedConstraint.RestLength = str2double(obj.UI.RestLengthEdit.String);
-                case 'Stiffness'
-                    obj.SelectedConstraint.Stiffness = str2double(obj.UI.ElasticityEdit.String);
-            end
-        end
-
-        %% ---------------- Core Constants ----------------
-        function setGravity(obj)
-            obj.Core.Gravity(2) = str2double(obj.UI.GravityEdit.String);
-        end
-
-        function setDt(obj)
-            obj.Core.dt = str2double(obj.UI.dtEdit.String);
-        end
-
-        function setDrawTime(obj)
-            obj.Core.DrawInterval = str2double(obj.UI.DrawTimeEdit.String);
-        end
-
-        function exitEditor(obj)
-            obj.Core.Running = false;
-            if isvalid(obj.Core.FigureHandle)
-                close(obj.Core.FigureHandle);
-            end
-        end
-
-        function setGround(obj)
-
-            % Create ground if checkbox is checked
-            if obj.UI.GroundEnable.Value
-                obj.GroundObj = Body([0 -10]', [0 0], 0, 'rect', [100 0.5],[1 rand(1) 1], true);
-                obj.Core.Scene.addBody(obj.GroundObj);
-            else
-                obj.GroundObj.Active = false;
-                obj.GroundObj.GraphicHandle.XData =[];
-                obj.GroundObj.GraphicHandle.YData =[];
-                obj.GroundObj.GraphicHandle.Visible = 'off';
-            end
-        end
-
-        function toggleGravity(obj)
-            if obj.UI.GravityEnable.Value
-                obj.Core.Gravity(2) = -9.81;
-            else
-                obj.Core.Gravity(2) = 0;
-            end
-        end
-
-        function pickBackgroundColor(obj)
-            fig = obj.AxesHandle.Parent;
-            fig.Units = 'pixels';%normalized units break modal box(wtf matlab)
-            c = uisetcolor();
-            if length(c) == 3  % user did not cancel
-                obj.AxesHandle.Color = c;
-            end
-            fig.Units = 'normalized';
-        end
-
-        function openHelp(~)
-            web('docs/helper.html', '-browser');
-        end
-
-        function dirPath = getSceneDir(~)
-            projectRoot = fileparts(fileparts(mfilename('fullpath')));
-            dirPath = fullfile(projectRoot, 'scenes');
-            if ~exist(dirPath,'dir')
-                mkdir(dirPath);
-            end
-        end
-
-
-        function togglePause(obj)
-            obj.Core.Paused = ~obj.Core.Paused;
-            obj.UI.PauseCheckbox.Value = obj.Core.Paused; % sync checkbox
-        end
-        function keyHandler(obj, evt)
-            switch evt.Key
-                case 'escape'
-                    obj.Core.Running = false;
-                    if isvalid(obj.Core.FigureHandle)
-                        close(obj.Core.FigureHandle);
-                    end
-
-                case 'space'
-                    obj.togglePause();  % toggle pause on space
-
-                    % ---------- Mode shortcuts ----------
-                case 'c'  % add circle
-                    obj.setMode('addCircle');
-
-                case 'r'  % add rectangle
-                    obj.setMode('addRect');
-
-                case 'k'  % add constraint
-                    obj.setMode('addConstraint');
-
-                case 'g'  % toggle ground
-                    obj.UI.GroundEnable.Value = ~obj.UI.GroundEnable.Value;
-                    obj.setGround();  % same as clicking the checkbox
-
-                case 'd'  % select drag
-                    obj.setMode('drag');  % enter drag mode
-
-                case 'q'  % reset scene to default
-                    obj.Core.Scene.fromStruct(obj.currentSceneData);
-                    obj.Scene.updateGraphics(obj.AxesHandle);  % redraw scene
-
-                case 'm'  % go back to menu (assuming a button or action is added for this)
-                    obj.goBackToMenu();  % trigger menu transition, you will implement this method
-            end
-        end
-
-        function goBackToMenu(obj)
-            % ---------------- Hide/Disable all editor UI elements ----------------
-
-            % Hide all elements in the main editor UI (if they exist)
-            if isfield(obj.UI, 'MainPanel') && ishandle(obj.UI.MainPanel)
-                obj.UI.MainPanel.Visible = 'off';
-            end
-
-            % Hide the ToolBar (if it exists)
-            if isfield(obj.UI, 'ToolBar') && ~isempty(obj.UI.ToolBar)
-                fieldsToolBar = fieldnames(obj.UI.ToolBar);
-                for i = 1:numel(fieldsToolBar)
-                    if ishandle(obj.UI.ToolBar.(fieldsToolBar{i}))
-                        try
-                            obj.UI.ToolBar.(fieldsToolBar{i}).Visible = 'off';  % Hide ToolBar components
-                        catch
-                            % In case a component doesn't support 'Visible'
-                            obj.UI.ToolBar.(fieldsToolBar{i}).Enable = 'off';  % Disable instead
-                        end
-                    end
-                end
-            end
-
-            % Reset the editor's core environment, such as clearing selection, mode, etc.
-            obj.Mode = 'select';  % Set mode back to default selection
-            obj.SelectedBody = [];
-            obj.SelectedConstraint = [];
-
-            % Disable all mouse event handlers
-            fig = obj.AxesHandle.Parent;
-            fig.WindowButtonDownFcn = '';   % Disable mouse down events
-            fig.WindowButtonUpFcn = '';     % Disable mouse up events
-            fig.WindowButtonMotionFcn = ''; % Disable mouse motion events
-            fig.WindowKeyPressFcn = @(src,evt)exit(src,evt);     % Disable keyboard events
-
-            function exit(~, evt)
-                % Check if the pressed key is the Escape key
-                if strcmp(evt.Key, 'escape')
-                    close all;  % Close the figure/app entirely
-                end
-            end
-
-
-            % ---------------- Reset UI structures to initial empty state ----------------
-            obj.UI = struct();  % Clear out the entire UI structure
-            obj.UI.ToolBar = struct();  % Clear out the ToolBar structure
-
-            obj.AxesHandle.Visible = 'off';
-            % ---------------- Show the Main Menu ----------------
-            % Make the menu panel visible
-            if isfield(obj.Menu, 'MenuPanel') && ishandle(obj.Menu.MenuPanel)
-                obj.Menu.MenuPanel.Visible = 'on';
-            end
-
-            % Optionally, reset the scene or data to the initial empty state if desired
-            obj.Core.Scene.resetEmpty(); % Or reset to default if that fits better
-
-            % Optionally, reset any other settings (e.g., gravity, dt, etc.) to default if desired
-            obj.Core.Gravity = [0; -9.81];  % Default gravity (just an example)
-            obj.Core.dt = 0.016;  % Default time step (example)
-            obj.Core.Paused = false;  % Default paused state (if applicable)
-        end
-
-
         function openBodyPropertyPanel(obj,mouseX,mouseY)
             if isempty(obj.SelectedBody) || obj.isCurrentlySelecting
                 return;
@@ -1000,7 +757,7 @@ classdef Editor < handle
             uicontrol(f,'Style','text','String','Color','Position',[xpad y labelW 20]);
             bodyColorBtn = uicontrol(f,'Style','pushbutton','BackgroundColor', body.Color, ...
                 'Position',[editX y 100 20],'Callback', @(s,e)pickBodyColor());
-            y = y - dy;
+            y = y - dy;%#ok
 
             % --- Callback functions ---
             function setPosX(), body.Pos(1) = str2double(posXEdit.String); body.updateGraphic(obj.AxesHandle); end
@@ -1096,6 +853,181 @@ classdef Editor < handle
                     stiffEdit.String = num2str(con.Stiffness);
                 end
             end
+        end
+
+        %% ---------------- Core Constants ----------------
+        function setGravity(obj)
+            obj.Core.Gravity(2) = str2double(obj.UI.GravityEdit.String);
+        end
+
+        function setDt(obj)
+            obj.Core.dt = str2double(obj.UI.dtEdit.String);
+        end
+
+        function setDrawTime(obj)
+            obj.Core.DrawInterval = str2double(obj.UI.DrawTimeEdit.String);
+        end
+
+        function exitEditor(obj)
+            obj.Core.Running = false;
+            if isvalid(obj.Core.FigureHandle)
+                close(obj.Core.FigureHandle);
+            end
+        end
+
+        function setGround(obj)
+
+            % Create ground if checkbox is checked
+            if obj.UI.GroundEnable.Value
+                obj.GroundObj = Body([0 -10]', [0 0], 0, 'rect', [100 0.5],[rand(1) 1 rand(1)], true);
+                obj.Core.Scene.addBody(obj.GroundObj);
+            else
+                obj.GroundObj.Active = false;
+                obj.GroundObj.GraphicHandle.XData =[];
+                obj.GroundObj.GraphicHandle.YData =[];
+                obj.GroundObj.GraphicHandle.Visible = 'off';
+            end
+        end
+
+        function toggleGravity(obj)
+            if obj.UI.GravityEnable.Value
+                obj.Core.Gravity(2) = -9.81;
+            else
+                obj.Core.Gravity(2) = 0;
+            end
+        end
+
+        function pickBackgroundColor(obj)
+            fig = obj.AxesHandle.Parent;
+            fig.Units = 'pixels';%normalized units break modal box(wtf matlab)
+            c = uisetcolor();
+            if length(c) == 3  % user did not cancel
+                obj.AxesHandle.Color = c;
+            end
+            fig.Units = 'normalized';
+        end
+
+        function openHelp(~)
+            web('docs/helper.html', '-browser');
+        end
+
+        function dirPath = getSceneDir(~)
+            projectRoot = fileparts(fileparts(mfilename('fullpath')));
+            dirPath = fullfile(projectRoot, 'scenes');
+            if ~exist(dirPath,'dir')
+                mkdir(dirPath);
+            end
+        end
+
+        function togglePause(obj)
+            obj.Core.Paused = ~obj.Core.Paused;
+            obj.UI.PauseCheckbox.Value = obj.Core.Paused; % sync checkbox
+        end
+
+        function keyHandler(obj, evt)
+            switch evt.Key
+                case 'escape'
+                    obj.Core.Running = false;
+                    if isvalid(obj.Core.FigureHandle)
+                        close(obj.Core.FigureHandle);
+                    end
+
+                case 'space'
+                    obj.togglePause();  % toggle pause on space
+
+                    % ---------- Mode shortcuts ----------
+                case 'c'  % add circle
+                    obj.setMode('addCircle');
+
+                case 'r'  % add rectangle
+                    obj.setMode('addRect');
+
+                case 'k'  % add constraint
+                    obj.setMode('addConstraint');
+
+                case 'g'  % toggle ground
+                    obj.UI.GroundEnable.Value = ~obj.UI.GroundEnable.Value;
+                    obj.setGround();  % same as clicking the checkbox
+
+                case 'd'  % select drag
+                    obj.setMode('drag');  % enter drag mode
+
+                case 'q'  % reset scene to default
+                    obj.Core.Scene.resetEmpty();
+                    if(strcmp(obj.currentSceneData,'default'))
+                        obj.Core.Scene.resetDefault();
+                    elseif(~isempty(obj.currentSceneData))
+                        obj.Core.Scene.fromStruct(obj.currentSceneData);
+                    end
+
+                    obj.Scene.updateGraphics(obj.AxesHandle);  % redraw scene
+
+                case 'm'  % go back to menu (assuming a button or action is added for this)
+                    obj.goBackToMenu();  % trigger menu transition, you will implement this method
+            end
+        end
+
+        function goBackToMenu(obj)
+            % ---------------- Hide/Disable all editor UI elements ----------------
+
+            % Hide all elements in the main editor UI (if they exist)
+            if isfield(obj.UI, 'MainPanel') && ishandle(obj.UI.MainPanel)
+                obj.UI.MainPanel.Visible = 'off';
+            end
+
+            % Hide the ToolBar (if it exists)
+            if isfield(obj.UI, 'ToolBar') && ~isempty(obj.UI.ToolBar)
+                fieldsToolBar = fieldnames(obj.UI.ToolBar);
+                for i = 1:numel(fieldsToolBar)
+                    if ishandle(obj.UI.ToolBar.(fieldsToolBar{i}))
+                        try
+                            obj.UI.ToolBar.(fieldsToolBar{i}).Visible = 'off';  % Hide ToolBar components
+                        catch
+                            % In case a component doesn't support 'Visible'
+                            obj.UI.ToolBar.(fieldsToolBar{i}).Enable = 'off';  % Disable instead
+                        end
+                    end
+                end
+            end
+
+            % Reset the editor's core environment, such as clearing selection, mode, etc.
+            obj.Mode = 'select';  % Set mode back to default selection
+            obj.SelectedBody = [];
+            obj.SelectedConstraint = [];
+
+            % Disable all mouse event handlers
+            fig = obj.AxesHandle.Parent;
+            fig.WindowButtonDownFcn = '';   % Disable mouse down events
+            fig.WindowButtonUpFcn = '';     % Disable mouse up events
+            fig.WindowButtonMotionFcn = ''; % Disable mouse motion events
+            fig.WindowKeyPressFcn = @(src,evt)exit(src,evt);     % Disable keyboard events
+
+            function exit(~, evt)
+                % Check if the pressed key is the Escape key
+                if strcmp(evt.Key, 'escape')
+                    close all;  % Close the figure/app entirely
+                end
+            end
+
+
+            % ---------------- Reset UI structures to initial empty state ----------------
+            obj.UI = struct();  % Clear out the entire UI structure
+            obj.UI.ToolBar = struct();  % Clear out the ToolBar structure
+
+            obj.AxesHandle.Visible = 'off';
+            % ---------------- Show the Main Menu ----------------
+            % Make the menu panel visible
+            if isfield(obj.Menu, 'MenuPanel') && ishandle(obj.Menu.MenuPanel)
+                obj.Menu.MenuPanel.Visible = 'on';
+            end
+
+            % Optionally, reset the scene or data to the initial empty state if desired
+            obj.Core.Scene.resetEmpty(); % Or reset to default if that fits better
+
+            % Optionally, reset any other settings (e.g., gravity, dt, etc.) to default if desired
+            obj.Core.Gravity = [0; -9.81];  % Default gravity (just an example)
+            obj.Core.dt = 0.016;  % Default time step (example)
+            obj.Core.Paused = false;  % Default paused state (if applicable)
         end
 
     end

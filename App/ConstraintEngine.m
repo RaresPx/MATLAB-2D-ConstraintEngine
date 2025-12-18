@@ -1,4 +1,7 @@
 classdef ConstraintEngine < handle
+    %CONSTRAINTENGINE - Lightweight wrapper managing core and editor
+    %   OBJ = CONSTRAINTENGINE() constructs the engine, creating the Core
+    %   and later instantiating an Editor to run the application.
     properties
         Core
         editor

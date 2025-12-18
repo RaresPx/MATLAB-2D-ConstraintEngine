@@ -1,109 +1,222 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Help Documentation</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-        }
-        h1, h2 {
-            color: #2C3E50;
-        }
-        .section {
-            margin-bottom: 20px;
-        }
-        .highlight {
-            color: #E74C3C;
-            font-weight: bold;
-        }
-        ul {
-            margin-left: 20px;
-        }
-        pre {
-            background-color: #2C3E50;
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editor Help Documentation</title>
+<style>
+    :root {
+        --bg-color: #1e1e1e;
+        --text-color: #f0f0f0;
+        --accent-color: #e74c3c;
+        --panel-bg: #2c2c2c;
+        --section-bg: #333333;
+        --highlight-bg: #444444;
+        --link-color: #3498db;
+    }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 20px;
+        transition: background-color 0.3s, color 0.3s;
+    }
+    h1 {
+        text-align: center;
+        color: var(--accent-color);
+    }
+    h2 {
+        background-color: var(--section-bg);
+        padding: 10px;
+        cursor: pointer;
+        border-radius: 5px;
+        margin-bottom: 5px;
+        transition: background-color 0.2s;
+    }
+    h2:hover { background-color: var(--highlight-bg); }
+    .section {
+        margin-bottom: 15px;
+    }
+    .collapsible-content {
+        display: none;
+        padding: 10px 20px;
+        background-color: var(--panel-bg);
+        border-radius: 5px;
+        margin-bottom: 10px;
+    }
+    ul {
+        margin-left: 20px;
+    }
+    li {
+        margin-bottom: 5px;
+    }
+    .highlight { color: var(--accent-color); font-weight: bold; }
+    pre {
+        background-color: #2c3e50;
+        color: #f0f0f0;
+        padding: 10px;
+        border-radius: 5px;
+        overflow-x: auto;
+    }
+    .darkmode-toggle {
+        position: fixed;
+        top: 15px;
+        right: 15px;
+        background-color: var(--panel-bg);
+        color: var(--text-color);
+        border: none;
+        padding: 8px 12px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+</style>
 </head>
 <body>
-    <h1>Editor Help Documentation</h1>
-    
-    <!-- General Overview -->
-    <div class="section">
-        <h2>Introduction</h2>
-        <p>Welcome to the interactive editor! This application allows you to manipulate objects and manage various settings in your scene. Use the toolbar and mode buttons to navigate through different tools and functionalities.</p>
-    </div>
+<button class="darkmode-toggle" onclick="toggleDarkMode()">Toggle Light/Dark Mode</button>
+<h1>MATLAB 2D Physics Editor Help</h1>
 
-    <!-- Mouse Functionality -->
-    <div class="section">
-        <h2>Mouse Interactions</h2>
-        <p>Your mouse is key to interacting with the scene. Below are some of the mouse functions you can use:</p>
-        <ul>
-            <li><span class="highlight">Left-click:</span> Select or place objects in the scene. Depending on the mode, clicking will either add new objects or select existing ones for manipulation.</li>
-            <li><span class="highlight">Right-click:</span> Open a properties panel for the selected object. You can adjust various settings for the object here.</li>
-            <li><span class="highlight">Drag:</span> While in the <span class="highlight">"drag"</span> mode, you can click and hold an object to drag it around the scene.</li>
-            <li><span class="highlight">Add Constraint:</span> While in the <span class="highlight">"addConstraint"</span> mode, left-click to pick a second body and define a constraint between the first and the second body.</li>
-        </ul>
-        <p>To exit any interaction, you can simply release the mouse button, and the object or mode will be deselected. You can then proceed with other actions.</p>
+<div class="section">
+    <h2 onclick="toggleSection(this)">Introduction</h2>
+    <div class="collapsible-content">
+        <p>Welcome to the MATLAB 2D Physics Editor! This interactive editor allows you to create, modify, and simulate 2D rigid bodies with physics interactions such as collisions, constraints, and gravity. Use the toolbar, side panels, mouse, and keyboard shortcuts to navigate the editor efficiently.</p>
     </div>
+</div>
 
-    <!-- Editor Modes -->
-    <div class="section">
-        <h2>Editor Modes</h2>
-        <p>Each mode provides different functionality. You can switch between modes using the toolbar buttons or hotkeys:</p>
+<div class="section">
+    <h2 onclick="toggleSection(this)">Menu & Toolbar</h2>
+    <div class="collapsible-content">
         <ul>
-            <li><span class="highlight">Select Mode:</span> Use this mode to interact with objects, select them, and move them around.</li>
-            <li><span class="highlight">Add Circle:</span> Adds a circle to the scene when you click in the desired location.</li>
-            <li><span class="highlight">Add Rectangle:</span> Adds a rectangle to the scene. Click to place the rectangle.</li>
-            <li><span class="highlight">Add Constraint:</span> Allows you to create constraints between two objects in the scene. This is used for physics simulations.</li>
-            <li><span class="highlight">Delete:</span> Select objects to delete them from the scene.</li>
+            <li><span class="highlight">FPS, Body, Constraint Info:</span> Monitor performance and scene complexity in real-time.</li>
+            <li><span class="highlight">Save (💾):</span> Save your current scene to the <code>Scenes/</code> folder.</li>
+            <li><span class="highlight">Load (📂):</span> Load a previously saved scene.</li>
+            <li><span class="highlight">Background Color (🎨):</span> Click to open a color picker and change the scene background. You can also replace <code>assets/background.png</code> for custom images.</li>
+            <li><span class="highlight">Help (❓):</span> Opens this documentation.</li>
+            <li><span class="highlight">Running :</span> Shows simulation toggle state.</li>
+            <li><span class="highlight">Mode Hint:</span> Displays the currently selected mode for quick reference.</li>
         </ul>
     </div>
+</div>
 
-    <!-- Toolbar -->
-    <div class="section">
-        <h2>Toolbar Overview</h2>
-        <p>The toolbar at the top of the editor provides quick access to various useful functions. Here's a breakdown of the available buttons:</p>
+<div class="section">
+    <h2 onclick="toggleSection(this)">Editor Modes</h2>
+    <div class="collapsible-content">
         <ul>
-            <li><span class="highlight">Save (💾):</span> Saves the current scene to a file. Use this button to store your scene data.</li>
-            <li><span class="highlight">Load (📂):</span> Loads a previously saved scene file. Use this to restore your work.</li>
-            <li><span class="highlight">Background Color (🎨):</span> Change the background color of the scene by clicking this button. It opens a color picker for customization.</li>
-            <li><span class="highlight">Help (❓):</span> Opens this help documentation in a new browser tab. Use this to get assistance with the editor features.</li>
-            <li><span class="highlight">Mode Hint:</span> Displays the currently selected mode in the toolbar. This helps you quickly identify what action you are currently performing.</li>
-        </ul>
-        <p>Each of these buttons allows you to quickly change or interact with the scene without needing to navigate through menus or other interface components.</p>
-    </div>
-
-    <!-- Keyboard Shortcuts -->
-    <div class="section">
-        <h2>Keyboard Shortcuts</h2>
-        <p>Here are some useful keyboard shortcuts to make your editing faster:</p>
-        <ul>
-            <li><span class="highlight">Esc:</span> Closes the application immediately.</li>
-            <li><span class="highlight">Spacebar:</span> Toggles the pause state of the simulation.</li>
-            <li><span class="highlight">C:</span> Switches to "Add Circle" mode.</li>
-            <li><span class="highlight">R:</span> Switches to "Add Rectangle" mode.</li>
-            <li><span class="highlight">K:</span> Switches to "Add Constraint" mode.</li>
-            <li><span class="highlight">G:</span> Toggles the ground in the scene.</li>
-            <li><span class="highlight">D:</span> Switches to "Drag" mode to move objects.</li>
-            <li><span class="highlight">Q:</span> Resets the scene to its default state.</li>
-            <li><span class="highlight">M:</span> Opens the menu and exits the editor.</li>
+            <li><span class="highlight">Select:</span> Interact with objects or constraints and edit properties.</li>
+            <li><span class="highlight">Add Circle:</span> Click to place a circle in the scene.</li>
+            <li><span class="highlight">Add Rectangle:</span> Click to place a rectangle.</li>
+            <li><span class="highlight">Add Constraint:</span> Click and drag between two bodies to connect them with a constraint for physics interactions.</li>
+            <li><span class="highlight">Drag:</span> Move objects using left-click or middle-click for instant drag.</li>
+            <li><span class="highlight">Delete:</span> Remove selected objects from the scene.</li>
+            <li><span class="highlight">Pause Checkbox:</span> Toggle simulation running on or off state.</li>
         </ul>
     </div>
+</div>
 
-    <!-- Additional Information -->
-    <div class="section">
-        <h2>Additional Information</h2>
-        <p>If you have any further questions, feel free to consult the documentation in the main menu!</p>
+<div class="section">
+    <h2 onclick="toggleSection(this)">Right-Hand Panel: Global Constants(Advanced)</h2>
+    <div class="collapsible-content">
+        <ul>
+            <li><span class="highlight">GravityY:</span> Vertical gravity value, default <code>-9.8</code>. Toggle gravity using the checkbox.</li>
+            <li><span class="highlight">dt:</span> Simulation timestep, default <code>1/60 ≈ 0.01666</code>. Controls simulation precision.</li>
+            <li><span class="highlight">DrawInterval:</span> Determines how often the scene redraws for performance, default <code>1/30 ≈ 0.03333</code>.</li>
+        </ul>
+        <p>Adjust these constants to modify the simulation behavior and performance. Recommended to leave them alone though.</p>
     </div>
+</div>
 
+<div class="section">
+    <h2 onclick="toggleSection(this)">Mouse Controls</h2>
+    <div class="collapsible-content">
+        <ul>
+            <li><span class="highlight">Left-click:</span> Place or select objects depending on mode.</li>
+            <li><span class="highlight">Right-click:</span> Open the property panel for objects or constraints.</li>
+            <li><span class="highlight">Middle-click drag:</span> Quickly drag objects (shortcut for drag mode).</li>
+        </ul>
+    </div>
+</div>
+
+<div class="section">
+    <h2 onclick="toggleSection(this)">Keyboard Shortcuts</h2>
+    <div class="collapsible-content">
+        <ul>
+            <li><span class="highlight">Esc:</span> Close application.</li>
+            <li><span class="highlight">Spacebar:</span> Pause/resume simulation.</li>
+            <li><span class="highlight">C:</span> Switch to Add Circle mode.</li>
+            <li><span class="highlight">R:</span> Switch to Add Rectangle mode.</li>
+            <li><span class="highlight">K:</span> Switch to Add Constraint mode.</li>
+            <li><span class="highlight">G:</span> Toggle gravity.</li>
+            <li><span class="highlight">D:</span> Drag mode.</li>
+            <li><span class="highlight">Q:</span> Reset scene.</li>
+            <li><span class="highlight">M:</span> Back to menu / exit editor.</li>
+        </ul>
+    </div>
+</div>
+
+<div class="section">
+    <h2 onclick="toggleSection(this)">Body & Constraint Properties</h2>
+    <div class="collapsible-content">
+        <ul>
+            <p>Right click or select mode then click on bodies to open the property panel. Recommended to close the panel after further scene editing</p>
+            <li><span class="highlight">Bodies:</span> Edit position, velocity, angle, angular velocity, mass, color, restitution, friction, shape dimensions.</li>
+            <li><span class="highlight">Constraints:</span> Edit connected bodies, rest length, stiffness.</li>
+        </ul>
+    </div>
+</div>
+
+<div class="section">
+    <h2 onclick="toggleSection(this)">Documentation Overview</h2>
+    <div class="collapsible-content">
+        <ul>
+            <li>Click the <span class="highlight">Documentation</span> button in the main menu to generate and view MATLAB docs.</li>
+            <li>MATLAB <code> publish </code> generates HTML/PDF files for all classes and functions.</li>
+            <li>Use docs to explore function usage, inputs/outputs, and example scenes.</li>
+            <li>This in-editor <span class="highlight"> helper.html </span> provides quick guidance for new users.</li>
+        </ul>
+    </div>
+</div>
+
+<div class="section">
+    <h2 onclick="toggleSection(this)">Tips & Additional Information</h2>
+    <div class="collapsible-content">
+        <ul>
+            <li>Save scenes frequently to avoid losing work.</li>
+            <li>Toggle ground to add/remove static platform.</li>
+            <li>Bodies falling out of view for long periods are auto-removed.</li>
+            <li>Use property panels for precise adjustments.</li>
+            <li>Modify background using the background color button or replace <code> assets/background.png </code>.</li>
+            <li>Bugs and developer oversights might appear and I'm sorryyyyy :(.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+function toggleSection(header) {
+    const content = header.nextElementSibling;
+    content.style.display = content.style.display === "block" ? "none" : "block";
+}
+
+function toggleDarkMode() {
+    const root = document.documentElement;
+    const isDark = root.style.getPropertyValue('--bg-color') === '#1e1e1e';
+    if(isDark) {
+        root.style.setProperty('--bg-color', '#f4f4f4');
+        root.style.setProperty('--text-color', '#333');
+        root.style.setProperty('--accent-color', '#e74c3c');
+        root.style.setProperty('--panel-bg', '#ffffff');
+        root.style.setProperty('--section-bg', '#e0e0e0');
+        root.style.setProperty('--highlight-bg', '#cccccc');
+        root.style.setProperty('--link-color', '#3498db');
+    } else {
+        root.style.setProperty('--bg-color', '#1e1e1e');
+        root.style.setProperty('--text-color', '#f0f0f0');
+        root.style.setProperty('--accent-color', '#e74c3c');
+        root.style.setProperty('--panel-bg', '#2c2c2c');
+        root.style.setProperty('--section-bg', '#333333');
+        root.style.setProperty('--highlight-bg', '#444444');
+        root.style.setProperty('--link-color', '#3498db');
+    }
+}
+</script>
 </body>
 </html>

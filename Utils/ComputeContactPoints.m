@@ -2,39 +2,34 @@ function contacts = ComputeContactPoints(bodyA, bodyB, normal)
 % ComputeContactPoints: Generates contact points between two convex shapes
 % Handles circles as special cases
 %
+% More help and information here: https://timallanwheeler.com/blog/2024/08/01/2d-collision-detection-and-resolution/
+% Extremely helpful information^^^^^^
+%
 % Output: Nx7 array [pA_x, pA_y, pB_x, pB_y, penetration, normal_x, normal_y]
-
 contacts = [];
-
 % Detect if either body is a circle
 isCircleA = strcmp(bodyA.Shape, 'circle');
 isCircleB = strcmp(bodyB.Shape, 'circle');
-
 if isCircleA && isCircleB
 delta = bodyB.Pos(:) - bodyA.Pos(:);
 dist = norm(delta);
 rA = bodyA.Radius;
 rB = bodyB.Radius;
-
 if dist == 0
     normal = [1;0];  % arbitrary
 else
     normal = delta / dist;
 end
-
 penetration = rA + rB - dist;
 if penetration <= 0
     contacts = [];
     return;
 end
-
 pA = bodyA.Pos(:) + normal * rA;
 pB = bodyB.Pos(:) - normal * rB;
 contacts = [pA', pB', penetration, normal'];
-
     return;
 end
-
 if isCircleA || isCircleB
     % Circle-polygon collision
     if isCircleA
@@ -54,7 +49,6 @@ if isCircleA || isCircleB
 c = circle.Pos(:);          % 2x1 column
 closestDist = inf;
 closestP = [0;0];
-
 N = size(verts,2);          % number of vertices = number of columns
 for i = 1:N
     a = verts(:,i);                 % 2x1 column
@@ -74,7 +68,6 @@ for i = 1:N
         closestP = p;
     end
 end
-
     penetration = circle.Radius - closestDist;
     if penetration <= 0
         return;
@@ -99,23 +92,18 @@ end
     contacts = [pA', pB', penetration, n'];
     return;
 end
-
 % --- Polygon-polygon (previous code) ---
 vertsA = bodyA.getVertices(); % 2xN
 vertsB = bodyB.getVertices(); % 2xM
-
 vertsA = vertsA';
 vertsB = vertsB';
-
 % Project all vertices onto the collision normal
 projA = vertsA * normal(:);
 projB = vertsB * normal(:);
-
 penetration = min(projB) - max(projA);
 if penetration >= 0
     return;
 end
-
 % Find contact candidates
 contactPts = [];
 for i = 1:size(vertsB,1)
@@ -126,7 +114,6 @@ for i = 1:size(vertsB,1)
         contactPts(end+1,:) = pB; %#ok<AGROW>
     end
 end
-
 % Build output
 for i = 1:size(contactPts,1)
     pB = contactPts(i,:);
@@ -137,5 +124,4 @@ for i = 1:size(contactPts,1)
     
     contacts(end+1,:) = [pA, pB, penetration, normal(:)']; %#ok<AGROW>
 end
-
 end
